@@ -1,0 +1,12 @@
+autopep8
+pylint
+
+bjoern
+Flask
+python-dotenv
+python-gitlab
+python-sonarqube-api
+redis
+requests
+rq
+rq-exporter

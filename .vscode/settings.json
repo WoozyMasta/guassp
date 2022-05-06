@@ -1,0 +1,72 @@
+{
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/.venv": true,
+    "**/__pycache__": true,
+  },
+  "workbench.colorCustomizations": {
+    "statusBar.background": "#1e0436",
+    "statusBar.foreground": "#ceabd4",
+    "statusBarItem.hoverBackground": "#480b4d93",
+    "statusBarItem.activeBackground": "#d405c391"
+  },
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "files.trimTrailingWhitespace": true,
+  "markdown.extension.toc.levels": "1..2",
+  "markdown.extension.toc.unorderedList.marker": "*",
+  "markdown-preview-enhanced.previewTheme": "github-light.css",
+  "markdown-preview-enhanced.breakOnSingleNewLine": false,
+  "rewrap.autoWrap.enabled": true,
+  "editor.renderWhitespace": "boundary",
+  "editor.insertSpaces": true,
+  "editor.rulers": [
+    {
+      "column": 72,
+      "color": "#1e751633",
+    },
+    {
+      "column": 80,
+      "color": "#c2790b99",
+    }
+  ],
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.python",
+    "editor.tabSize": 4,
+    "editor.wordWrap": "off",
+    "editor.minimap.maxColumn": 132
+  },
+  "[shellscript]": {
+    "editor.tabSize": 2,
+    "editor.wordWrap": "off",
+    "editor.minimap.maxColumn": 132,
+    "editor.language.brackets": [
+      ["{", "}"],
+      ["[", "]"],
+      ["[[", "]]"],
+      ["(", ")"]
+    ],
+  },
+  "[markdown]": {
+    "files.trimTrailingWhitespace": false,
+    "editor.defaultFormatter": "yzhang.markdown-all-in-one"
+  },
+  "python.linting.ignorePatterns": [
+    ".vscode/*.py",
+    "**/extra/**/*.py",
+    "**/.venv/**/*.py"
+  ],
+  "python.defaultInterpreterPath": "./.venv/bin/python",
+  "python.linting.pylintEnabled": true,
+  "python.linting.enabled": true,
+  "python.linting.flake8Enabled": false,
+  "python.linting.banditEnabled": false,
+  "python.linting.pydocstyleEnabled": false,
+  "python.linting.pycodestyleEnabled": false,
+  "python.linting.prospectorEnabled": false,
+  "python.linting.mypyEnabled": false,
+  "python.formatting.provider": "autopep8",
+  "python.formatting.autopep8Args": ["--max-line-length", "80", "--experimental"],
+}
