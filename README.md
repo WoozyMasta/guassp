@@ -55,8 +55,8 @@ You can pull image from registries:
 
 For a quick start, you can use the example from [docker-compose][]:
 
-1. [`docker-compose.env`][] - change the settings in the environment file
-2. [`docker-compose.yml`][] - run with `docker-compose up -d`
+1. [docker-compose.env][] - change the settings in the environment file
+2. [docker-compose.yml][] - run with `docker-compose up -d`
 
 ## Configuration
 

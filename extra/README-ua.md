@@ -70,8 +70,8 @@ API через [python-sonarqube-api][]. Для обробки черги пов
 
 Для швидкого старту можна використати приклад із [docker-compose][]:
 
-1. [`docker-compose.env`][] - змініть налаштування у файлі налаштувань оточення
-2. [`docker-compose.yml`][] - виконайте `docker-compose up -d`
+1. [docker-compose.env][] - змініть налаштування у файлі налаштувань оточення
+2. [docker-compose.yml][] - виконайте `docker-compose up -d`
 
 ## Конфігурація
 
