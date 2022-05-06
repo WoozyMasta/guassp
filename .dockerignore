@@ -1,8 +1,15 @@
-.vscode
+.vscode/
+.git/
+extra/
 .env
-.git
-README.md
+.env.example
+.gitignore
+.markdownlint.yaml
+.pylintrc
 CHANGELOG.md
+CNAME
+README.md
+
 
 # Python
 .venv/
