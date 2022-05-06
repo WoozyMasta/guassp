@@ -1,9 +1,9 @@
 # Define base images and tags
 # ---------------------------
 ARG DOCKERFILE_BUILD_IMAGE="docker.io/python"
-ARG DOCKERFILE_BUILD_TAG="3.10.0-bullseye"
+ARG DOCKERFILE_BUILD_TAG="3.10-bullseye"
 ARG DOCKERFILE_BASE_IMAGE="docker.io/python"
-ARG DOCKERFILE_BASE_TAG="3.10.0-slim-bullseye"
+ARG DOCKERFILE_BASE_TAG="3.10-slim-bullseye"
 
 
 # Prepare venv
