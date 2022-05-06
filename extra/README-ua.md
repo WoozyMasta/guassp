@@ -14,6 +14,7 @@
 * [Реалізація](#реалізація)
 * [Компоненти](#компоненти)
 * [Зображення контейнерів](#зображення-контейнерів)
+* [Швидкий старт](#швидкий-старт)
 * [Конфігурація](#конфігурація)
 * [API](#api)
 * [Пайплайн](#пайплайн)
@@ -43,6 +44,7 @@ prometheus.
 * [Реалізація](#реалізація)
 * [Компоненти](#компоненти)
 * [Зображення контейнерів](#зображення-контейнерів)
+* [Швидкий старт](#швидкий-старт)
 * [Конфігурація](#конфігурація)
 * [API](#api)
 * [Пайплайн](#пайплайн)
@@ -63,6 +65,13 @@ API через [python-sonarqube-api][]. Для обробки черги пов
 * [`ghcr.io/woozymasta/guassp:latest`][ghcr]
 * [`quay.io/woozymasta/guassp:latest`][quay]
 * [`docker.io/woozymasta/guassp:latest`][dhub]
+
+## Швидкий старт
+
+Для швидкого старту можна використати приклад із [docker-compose][]:
+
+1. [`docker-compose.env`][] - змініть налаштування у файлі налаштувань оточення
+2. [`docker-compose.yml`][] - виконайте `docker-compose up -d`
 
 ## Конфігурація
 
@@ -251,6 +260,8 @@ pip install requirements.txt
 [permissions]: permissions.drawio.png
 [role-mapping]: role-mapping.png
 [dashboard]: grafana-dashboard.json
+[docker-compose.env]: docker-compose.env
+[docker-compose.yml]: docker-compose.yml
 
 <!-- Посилання до сторінок -->
 [GitLab]: https://about.gitlab.com
@@ -263,6 +274,7 @@ pip install requirements.txt
 [python-sonarqube-api]: https://github.com/shijl0925/python-sonarqube-api
 [rq]: https://github.com/rq/rq
 [rq-exporter]: https://github.com/mdawar/rq-exporter
+[docker-compose]: https://docs.docker.com/compose/
 
 <!-- Containers -->
 [quay]: https://quay.io/repository/woozymasta/guassp

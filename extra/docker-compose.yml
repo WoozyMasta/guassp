@@ -1,0 +1,66 @@
+---
+version: "3.9"
+services:
+
+  api:
+    image: ghcr.io/woozymasta/guassp:latest
+    command: api
+    env_file:
+      - docker-compose.env
+    ports:
+      - 8000:5000
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-Lsf", "0.0.0.0:5000/tasks"]
+      interval: 1s
+      timeout: 3s
+      retries: 10
+
+  worker-1:
+    image: ghcr.io/woozymasta/guassp:latest
+    command: worker
+    env_file:
+      - docker-compose.env
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker-2:
+    image: ghcr.io/woozymasta/guassp:latest
+    command: worker
+    env_file:
+      - docker-compose.env
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  exporter:
+    image: ghcr.io/woozymasta/guassp:latest
+    command: exporter
+    env_file:
+      - docker-compose.env
+    ports:
+      - 9726:9726
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: docker.io/redis:alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 10
+
+  redis-exporter:
+    image: bitnami/redis-exporter:latest
+    env_file:
+      - docker-compose.env
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - 9121:9121

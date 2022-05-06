@@ -14,6 +14,7 @@ GitLab.
 * [Реализация](#реализация)
 * [Компоненты](#компоненты)
 * [Образы контейнеров](#образы-контейнеров)
+* [Быстрый старт](#быстрый-старт)
 * [Конфигурация](#конфигурация)
 * [API](#api)
 * [Пайплайн](#пайплайн)
@@ -42,6 +43,7 @@ GitLab.
 * [Реализация](#реализация)
 * [Компоненты](#компоненты)
 * [Образы контейнеров](#образы-контейнеров)
+* [Быстрый старт](#быстрый-старт)
 * [Конфигурация](#конфигурация)
 * [API](#api)
 * [Пайплайн](#пайплайн)
@@ -62,6 +64,13 @@ API GitLab происходит через [python-gitlab][], а SonarQube API �
 * [`ghcr.io/woozymasta/guassp:latest`][ghcr]
 * [`quay.io/woozymasta/guassp:latest`][quay]
 * [`docker.io/woozymasta/guassp:latest`][dhub]
+
+## Быстрый старт
+
+Для быстрого старта можно использовать пример из [docker-compose][]:
+
+1. [`docker-compose.env`][] - изменитe настройки в файле настроек окружения
+2. [`docker-compose.yml`][] - выполните `docker-compose up -d`
 
 ## Конфигурация
 
@@ -249,6 +258,8 @@ pip install requirements.txt
 [permissions]: permissions.drawio.png
 [role-mapping]: role-mapping.png
 [dashboard]: grafana-dashboard.json
+[docker-compose.env]: docker-compose.env
+[docker-compose.yml]: docker-compose.yml
 
 <!-- Links web -->
 [GitLab]: https://about.gitlab.com
@@ -261,6 +272,7 @@ pip install requirements.txt
 [python-sonarqube-api]: https://github.com/shijl0925/python-sonarqube-api
 [rq]: https://github.com/rq/rq
 [rq-exporter]: https://github.com/mdawar/rq-exporter
+[docker-compose]: https://docs.docker.com/compose/
 
 <!-- Containers -->
 [quay]: https://quay.io/repository/woozymasta/guassp

@@ -10,6 +10,7 @@ in the same way as project permissions in GitLab.
 * [Implementation](#implementation)
 * [Components](#components)
 * [Container image](#container-image)
+* [Quick start](#quick-start)
 * [Configuration](#configuration)
 * [API](#api)
 * [Pipeline](#pipeline)
@@ -49,6 +50,13 @@ You can pull image from registries:
 * [`ghcr.io/woozymasta/guassp:latest`][ghcr]
 * [`quay.io/woozymasta/guassp:latest`][quay]
 * [`docker.io/woozymasta/guassp:latest`][dhub]
+
+## Quick start
+
+For a quick start, you can use the example from [docker-compose][]:
+
+1. [`docker-compose.env`][] - change the settings in the environment file
+2. [`docker-compose.yml`][] - run with `docker-compose up -d`
 
 ## Configuration
 
@@ -235,6 +243,8 @@ And for simplicity, run through a script `guassp`
 [permissions]: extra/permissions.drawio.png
 [role-mapping]: extra/role-mapping.png
 [dashboard]: extra/grafana-dashboard.json
+[docker-compose.env]: extra/docker-compose.env
+[docker-compose.yml]: extra/docker-compose.yml
 
 <!-- Links web -->
 [GitLab]: https://about.gitlab.com
@@ -246,6 +256,7 @@ And for simplicity, run through a script `guassp`
 [python-sonarqube-api]: https://github.com/shijl0925/python-sonarqube-api
 [rq]: https://github.com/rq/rq
 [rq-exporter]: https://github.com/mdawar/rq-exporter
+[docker-compose]: https://docs.docker.com/compose/
 
 <!-- Containers -->
 [quay]: https://quay.io/repository/woozymasta/guassp
