@@ -163,6 +163,12 @@ curl -sL http://127.0.0.1:5000/task/8b155172-cfcf-4777-b9f4-bfce53b6eb0e \
   -X DELETE | jq
 ```
 
+### Health
+
+> GET **`/task/health`**
+
+API health, application availability and job queues.
+
 ## Pipeline
 
 In the GitLab CI pipeline, first of all, you must make sure that the [ALM][]

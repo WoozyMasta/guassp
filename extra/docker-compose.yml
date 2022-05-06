@@ -13,7 +13,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-Lsf", "0.0.0.0:5000/tasks"]
+      test: ["CMD", "curl", "-Lsf", "0.0.0.0:5000/health"]
       interval: 1s
       timeout: 3s
       retries: 10

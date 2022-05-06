@@ -322,11 +322,26 @@ def after_request(response: object):
     Returns:
         responce: response
     """
+    if 'health' in response.json and response.json['health'] == 'healthy':
+        return response
     if 200 <= response.status_code <= 399:
         log.info('%s %s %s %s %s',
             request.remote_addr, request.method, request.scheme,
             request.full_path.rstrip('?'), response.status)
     return response
+
+
+@app.route('/health')
+def health():
+    """Return health status
+
+    Returns:
+        json: healthy if ok
+    """
+    if key := queue.key:
+        return jsonify(health='healthy', key=key)
+    else:
+        abort(500)
 
 
 @app.route('/tasks')
@@ -336,7 +351,14 @@ def tasks():
     Returns:
         json: task count and tasks UUID's list
     """
-    return jsonify(tasks_count=len(queue), tasks=queue.job_ids)
+    return jsonify(
+        tasks=queue.job_ids,
+        started_tasks=queue.started_job_registry.count,
+        deferred_tasks=queue.deferred_job_registry.count,
+        finished_tasks=queue.finished_job_registry.count,
+        failed_tasks=queue.failed_job_registry.count,
+        scheduled_tasks=queue.scheduled_job_registry.count
+    )
 
 
 @app.route('/task/<string:task_uuid>')
