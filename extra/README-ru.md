@@ -50,9 +50,9 @@ API GitLab происходит через [python-gitlab][], а SonarQube API �
 
 Вы можете получить образы из реестров:
 
-* `ghcr.io/woozymasta/guassp:latest`
-* `quay.io/woozymasta/guassp:latest`
-* `docker.io/woozymasta/guassp:latest`
+* [`ghcr.io/woozymasta/guassp:latest`][ghcr]
+* [`quay.io/woozymasta/guassp:latest`][quay]
+* [`docker.io/woozymasta/guassp:latest`][dhub]
 
 ## Конфигурация
 
@@ -252,3 +252,8 @@ pip install requirements.txt
 [python-sonarqube-api]: https://github.com/shijl0925/python-sonarqube-api
 [rq]: https://github.com/rq/rq
 [rq-exporter]: https://github.com/mdawar/rq-exporter
+
+<!-- Containers -->
+[quay]: https://quay.io/repository/woozymasta/guassp
+[dhub]: https://hub.docker.com/r/woozymasta/guassp
+[ghcr]: https://github.com/WoozyMasta/guassp/pkgs/container/guassp
