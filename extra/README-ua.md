@@ -186,6 +186,9 @@ curl -sL http://127.0.0.1:5000/task/8b155172-cfcf-4777-b9f4-bfce53b6eb0e \
 чого можна надсилати завдання на синхронізацію в guassp. Ось тепер можна
 розпочинати аналіз проекту.
 
+Для публікації API Guassp за Nginx як частини API SonarQube, дивіться до
+[прикладу конфігурації Nginx][]
+
 ```bash
 : "${SONARQUBE_PROJECT_KEY:=gitlab:$CI_PROJECT_ID}"
 
@@ -195,14 +198,13 @@ curl --location --fail --user "$SONARQUBE_TOKEN:" \
   -d "project=$SONARQUBE_PROJECT_KEY" \
   -d "repository=$CI_PROJECT_ID"
 
-curl --location --fail \
-  "$SONARQUBE_URL:5000/task" \
-  -H "JOB-TOKEN: $CI_JOB_TOKEN"
+curl --location --fail -X POST -H "JOB-TOKEN: $CI_JOB_TOKEN" \
+  "$SONARQUBE_URL/api/guassp/task"
 ```
 
 Більш об'ємний приклад скрипту виконання SonarQube у пайплайні ви можете
 побачити у файлі
-[`sq-integration-taks.sh`](extra/sq-integration-taks.sh)
+[`sq-integration-taks.sh`][sq-integration-taks]
 
 ## Метрики
 
@@ -262,6 +264,8 @@ pip install requirements.txt
 [dashboard]: grafana-dashboard.json
 [docker-compose.env]: docker-compose.env
 [docker-compose.yml]: docker-compose.yml
+[прикладу конфігурації Nginx]: nginx.conf
+[sq-integration-taks]: sq-integration-taks.sh
 
 <!-- Посилання до сторінок -->
 [GitLab]: https://about.gitlab.com

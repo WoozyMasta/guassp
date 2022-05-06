@@ -169,6 +169,9 @@ In the GitLab CI pipeline, first of all, you must make sure that the [ALM][]
 setup is done and refers to your project, after which you can submit
 a task for synchronization in guassp. Now you can start the analysis.
 
+For publish Guassp API behind Nginx as part of SonarQube API check
+[Nginx config example][]
+
 ```bash
 : "${SONARQUBE_PROJECT_KEY:=gitlab:$CI_PROJECT_ID}"
 
@@ -178,14 +181,12 @@ curl --location --fail --user "$SONARQUBE_TOKEN:" \
   -d "project=$SONARQUBE_PROJECT_KEY" \
   -d "repository=$CI_PROJECT_ID"
 
-curl --location --fail \
-  "$SONARQUBE_URL:5000/task" \
-  -H "JOB-TOKEN: $CI_JOB_TOKEN"
+curl --location --fail -X POST -H "JOB-TOKEN: $CI_JOB_TOKEN" \
+  "$SONARQUBE_URL/api/guassp/task"
 ```
 
 You can see a more voluminous example of a script for executing SonarQube
-in the pipeline in the [`sq-integration-taks.sh`](extra/sq-integration-taks.sh)
-file
+in the pipeline in the [`sq-integration-taks.sh`][sq-integration-taks] file
 
 ## Metrics
 
@@ -245,6 +246,8 @@ And for simplicity, run through a script `guassp`
 [dashboard]: extra/grafana-dashboard.json
 [docker-compose.env]: extra/docker-compose.env
 [docker-compose.yml]: extra/docker-compose.yml
+[Nginx config example]: extra/nginx.conf
+[sq-integration-taks]: extra/sq-integration-taks.sh
 
 <!-- Links web -->
 [GitLab]: https://about.gitlab.com
