@@ -8,6 +8,7 @@ in the same way as project permissions in GitLab.
 > This document is available in languages: [eng 🇬🇧][], [ua 🇺🇦][], [rus 🇷🇺][]
 
 * [Implementation](#implementation)
+* [Requirements](#requirements)
 * [Components](#components)
 * [Container image](#container-image)
 * [Quick start](#quick-start)
@@ -35,6 +36,46 @@ in accordance with GitLab.
 
 ![permissions][]  
 ![role-mapping][]
+
+## Requirements
+
+### Necessarily
+
+* SonarQube must have configured [ALM][] integration with your GitLab, and you
+  must specify the name of the integration key in `SONARQUBE_ALM_KEY`;
+* Authentication in SonarQube must occur only through [ALM][] GitLab, otherwise
+  the search for users will be violated, the rights are synchronized only for
+  the explicitly corresponding account that came from GitLab;
+* You must be able to provide an access token with administrative privileges to
+  SonarQube in `SONARQUBE_TOKEN` for the worker to work correctly;
+* You must create a service user in GitLab, which must have at least
+  **developer** access in all projects that you want to analyze in SonarQube,
+  with this user you must log in to SonarQube and give him global rights to
+  perform analysis and create projects. Then you can use that user's token:
+  * User token received in SonarQube as `SONARQUBE_TOKEN` used in CI pipeline to
+    perform analysis and project management.
+  * User token received in GitLab as `GITLAB_TOKEN` for worker, needed to get a
+    list of all members of a group or project, including inherited and invited
+    members
+* The name of the project registered in SonarQube must be equal to
+  `$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME` and the project key is recommended to
+  be set to `gitlab:$CI_PROJECT_ID`. Only with these settings, synchronization
+  will be successful, other states are possible but have not been tested.
+
+### Recommended
+
+* The best experience will be gained by using the
+  [sonarqube-community-branch-plugin][] plugin which adds branch analysis and PR
+  support to your projects. Also here you will need a previously created system
+  user in GitLab with **developer** rights, which will allow you to decorate MR
+  in your projects.
+* For transparent integration, it is best to use the example script
+  [sq-integration-taks] for the GitLab CI pipeline, otherwise other project
+  registration options may not work correctly or even break the work. The
+  example is also tailored for the presence of the
+  [sonarqube-community-branch-plugin][] plugin and the execution of OWASP
+  DependencyCheck
+* Use Prometheus and Grafana metrics to analyze synchronizer performance.
 
 ## Components
 
@@ -148,7 +189,7 @@ curl -sL http://127.0.0.1:5000/tasks | jq -er '.tasks | keys'
 
 ### Task Status
 
-> GET **`/task/<job_uuid>`**
+> GET **`/task/<uuid:job_uuid>`**
 
 ```bash
 curl -sL http://127.0.0.1:5000/task/8b155172-cfcf-4777-b9f4-bfce53b6eb0e | jq
@@ -156,16 +197,25 @@ curl -sL http://127.0.0.1:5000/task/8b155172-cfcf-4777-b9f4-bfce53b6eb0e | jq
 
 ### Removing a task from the queue
 
-> DELETE **`/task/<job_uuid>`**
+> DELETE **`/task/<uuid:job_uuid>`**
 
 ```bash
 curl -sL http://127.0.0.1:5000/task/8b155172-cfcf-4777-b9f4-bfce53b6eb0e \
   -X DELETE | jq
 ```
 
+### Manual task registration by GitLab project ID
+
+> POST **`/task_manual/<int:prj_id>`**
+
+```bash
+curl -sL http://127.0.0.1:5000/task_manual/111 \
+  -X POST | jq
+```
+
 ### Health
 
-> GET **`/task/health`**
+> GET **`/health`**
 
 API health, application availability and job queues.
 
@@ -266,6 +316,7 @@ And for simplicity, run through a script `guassp`
 [rq]: https://github.com/rq/rq
 [rq-exporter]: https://github.com/mdawar/rq-exporter
 [docker-compose]: https://docs.docker.com/compose/
+[sonarqube-community-branch-plugin]: https://github.com/mc1arke/sonarqube-community-branch-plugin
 
 <!-- Containers -->
 [quay]: https://quay.io/repository/woozymasta/guassp

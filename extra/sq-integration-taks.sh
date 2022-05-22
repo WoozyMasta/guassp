@@ -41,7 +41,7 @@ fi
 # Skip stages
 : "${SKIP_DEPENDENCY_CHECK_JOB:=false}"
 : "${SKIP_SONARQUBE_PREPARE:=false}"
-: "${SKIP_SONARQUBE_SYNC:=false}"
+: "${SKIP_SONARQUBE_PERMISSIONS_SYNC:=false}"
 : "${SKIP_SONARQUBE_COVERAGE:=false}"
 # Version of analyzed project
 version="${CI_COMMIT_REF_NAME:-MR-${CI_MERGE_REQUEST_IID:-0}}"
@@ -86,48 +86,60 @@ if ! is-true "$SKIP_SONARQUBE_PREPARE"; then
   # Check default brnach name
   section-start prepare 'Preparing to run the SonarQube Scanner'
 
-  # Try create project in SQ
-  if sq-api projects/create -o /dev/null \
-    -d "name=$SONARQUBE_PROJECT_NAME" \
-    -d "project=$SONARQUBE_PROJECT_KEY"
-  then
-    info "Project $SONARQUBE_PROJECT_NAME with " \
-      "key $SONARQUBE_PROJECT_KEY created in SonarQube"
-  fi
-
   # Get branches list data
   sq_branches="$(
-    sq-api project_branches/list -d "project=$SONARQUBE_PROJECT_KEY"
+    sq-api project_branches/list -d "project=$SONARQUBE_PROJECT_KEY" ||
+    echo '{}'
   )"
+
+  # Check project not exist in SQ
+  if ! jq -er '.branches[]' <<< "$sq_branches" &> /dev/null; then
+
+    # Check default branch is same as analysys branch
+    if [ "${CI_COMMIT_BRANCH:-none}" == "$CI_DEFAULT_BRANCH" ]; then
+
+      # Create project if not exist
+      sq-api projects/create -o /dev/null \
+        -d "name=$SONARQUBE_PROJECT_NAME" \
+        -d "project=$SONARQUBE_PROJECT_KEY" && \
+      info "Project $SONARQUBE_PROJECT_NAME with " \
+          "key $SONARQUBE_PROJECT_KEY created in SonarQube"
+    else
+      sq_must_analyze_in_master=1
+    fi
+  fi
 
   # Let's check if the default branch for the project was previously analyzed.
   # If there has not been an analysis yet and the current analysis is
   # not started for the default branch, then we issue an error that the
   # default branch of the project must first be analyzed.
   # Otherwise, problems arise with the first analysis of the project.
-
-  if ! jq \
-    -er '.branches[] | select(.isMain==true) | .status[]' <<< "$sq_branches" \
-    > /dev/null
+  if ! jq -er \
+    '.branches[] | select(.isMain==true) | .status[]' <<< "$sq_branches" \
+    &> /dev/null
   then
     if [ "${CI_COMMIT_BRANCH:-none}" != "$CI_DEFAULT_BRANCH" ]; then
-      fail  \
-        "This is the first analyze of the project $SONARQUBE_PROJECT_NAME " \
-        "($SONARQUBE_PROJECT_KEY), and you are trying to do it not from the " \
-        "default branch, but from $version. This action is not allowed, " \
-        "you must first run analyze on the default ($CI_DEFAULT_BRANCH) " \
-        'branch, only then will you be able to parse merge requests, tags, ' \
-        "and other branches. $SUPPORT_CONTACTS"
+      sq_must_analyze_in_master=1
     fi
   fi
 
+  [ "${sq_must_analyze_in_master:-0}" -eq 1 ] && fail \
+    "This is the first analyze of the project $SONARQUBE_PROJECT_NAME" \
+    "($SONARQUBE_PROJECT_KEY), and you are trying to do it not from the" \
+    "default branch, but from $version. This action is not allowed," \
+    "you must first run analyze on the default ($CI_DEFAULT_BRANCH)" \
+    'branch, only then will you be able to parse merge requests, tags,' \
+    "and other branches. $SUPPORT_CONTACTS"
+
+
   # Get name of current default branch in SQ
   sq_curent_branch="$(
-    jq -er '.branches[] | select(.isMain==true) | .name' <<< "$sq_branches"
+    jq -er '.branches[] | select(.isMain==true) | .name' <<< "$sq_branches" \
+      &> /dev/null || :
   )"
 
   # Rename SQ default branch to default branch in GL if they are not the same
-  if [ "$sq_curent_branch" != "$CI_DEFAULT_BRANCH" ]; then
+  if [ "${sq_curent_branch:-}" != "$CI_DEFAULT_BRANCH" ]; then
     sq-api project_branches/rename \
       -d "project=$SONARQUBE_PROJECT_KEY" \
       -d "name=$CI_DEFAULT_BRANCH" &&
@@ -149,12 +161,14 @@ fi
 
 # SonarQube project users access sync with GitLab
 # -----------------------------------------------------------------------------
-if ! is-true "$SKIP_SONARQUBE_SYNC"; then
+if ! is-true "$SKIP_SONARQUBE_PERMISSIONS_SYNC"; then
   section-start 'guassp' "SonarQube project users access sync with GitLab"
-  curl -Lf "$SONARQUBE_URL:5000/task" -H "JOB-TOKEN: $CI_JOB_TOKEN" | jq -er
+  curl --location --fail $debug_curl --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+    -X POST "$SONARQUBE_URL/api/guassp/task"| jq -e
   section-end
 else
-  warn 'SonarQube project access sync skiped by flag SKIP_SONARQUBE_SYNC=true'
+  warn 'SonarQube project access sync skiped by flag' \
+    'SKIP_SONARQUBE_PERMISSIONS_SYNC=true'
 fi
 
 

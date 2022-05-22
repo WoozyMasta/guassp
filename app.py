@@ -141,19 +141,46 @@ def sonarqube_connect():
         os.sys.exit(1)
 
 
-def sync_permissions(job_state: dict, alm_key: str = None):
+def sq_search_key_by_alm(sq: object, project: object, alm_key: str = None):
+    """Serch project by ALM key
+
+    Args:
+        sq (object): SonarQube connection object
+        project (object): GitLab project object generator
+        alm_key (str, optional): ALM integration key name. Defaults to None.
+    """
+    # Set ALM key
+    alm_key = alm_key or app.config['SONARQUBE_ALM_KEY']
+
+    # Search project by name in GL ALM projects
+    # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
+    sq_gl_repos = sq.alm_integrations.search_gitlab_repos(
+        almSetting=alm_key,
+        projectName=project.name).get('repositories')
+    log.debug('Load %d projects from SonarQube by %s ALM and %s name',
+        len(sq_gl_repos), alm_key, project.name)
+
+    # Get SQ project key by GL ID
+    sq_project_keys = [
+        i.get('sqProjectKey') for i in sq_gl_repos if i['id'] == project.id
+    ]
+    log.debug('Available projects keys: %s', ', '.join(sq_project_keys))
+
+    # Check SQ project key
+    if len(sq_project_keys) != 1 or sq_project_keys[0] is None:
+        log.error('Projects id %d not found in SonarQube', project.id)
+        return
+    else:
+        return sq_project_keys[0]
+
+
+def sync_permissions(gl_project_id: int, alm_key: str = None):
     """Sync permissions from GitLab to SonarQube
 
     Args:
-        job_state (dict): job data returned from GitLab by CI_JOB_TOKEN
+        gl_project_id (int): GitLab project ID
         alm_key (str, optional): ALM integration key name. Defaults to None.
     """
-
-    # Get GL project ID
-    gl_project_id = job_state['pipeline']['project_id']
-
-    # Set ALM key
-    alm_key = alm_key or app.config['SONARQUBE_ALM_KEY']
 
     # Connect to SQ and GL
     sq = sonarqube_connect()
@@ -162,35 +189,42 @@ def sync_permissions(job_state: dict, alm_key: str = None):
     # Get GL project by ID
     try:
         gl_project = gl.projects.get(gl_project_id)
+        log.debug('Success get project %d data from GitLab', gl_project_id)
     except exceptions.GitlabGetError as e:
         log.error('Projects id %d: %s', gl_project_id, e)
         return
 
-    # Search project by name in GL ALM projects
-    # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
-    sq_gl_repos = sq.alm_integrations.search_gitlab_repos(
-        almSetting=alm_key,
-        projectName=gl_project.name).get('repositories')
+    # Try get SQ project key by ALM
+    if sq_project_key := sq_search_key_by_alm(sq, gl_project, alm_key):
+        log.debug('Use ALM project with key %s', sq_project_key)
 
-    # Get SQ project key by GL ID
-    sq_project_keys = [
-        i.get('sqProjectKey') for i in sq_gl_repos if i['id'] == gl_project_id
-    ]
+        # Get SQ project data
+        sq_projects = list(sq.projects.search_projects(projects=sq_project_key))
+        if len(sq_projects) != 1:
+            log.error('Projects key %s not matched', sq_project_key)
+            return
+        else:
+            sq_project = sq_projects[0]
+            log.info('Use key %s founded by ALM: %s', sq_project_key, alm_key)
 
-    # Check SQ project key
-    if len(sq_project_keys) != 1 or sq_project_keys[0] is None:
-        log.error('Projects id %d not found SonarQube', gl_project_id)
-        return
+    # Search project in SQ by project name
+    # $CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME
     else:
-        sq_project_key = sq_project_keys[0]
+        log.debug('Cant find project with ALM %s and try search it', alm_key)
+        query = gl_project.path_with_namespace
+        sq_projects = list(sq.projects.search_projects(q=query))
 
-    # Get SQ project data
-    sq_projects = list(sq.projects.search_projects(projects=sq_project_key))
-    if len(sq_projects) != 1:
-        log.error('Projects key %s not matched', sq_project_key)
-        return
-    else:
+        if not sq_projects:
+            log.error('Cant find any project by query: %s', query)
+            return
+        if len(sq_projects) > 1:
+            log.error('Found more than one project by query: %s', query)
+            return
+
         sq_project = sq_projects[0]
+        sq_project_key = sq_project['key']
+        log.info('Use key %s founded by query: %s', sq_project_key, query)
+
 
     # Update SQ project visibility as GL project visibility
     if gl_project.visibility != sq_project.get('visibility', 'private'):
@@ -457,12 +491,41 @@ def register_task():
     # Add task to queue
     task = queue.enqueue_call(
         func=sync_permissions,
-        args=(gl_job_state,),
+        args=(prj_id,),
         result_ttl=app.config['QUEUE_RESULT_TTL']
     )
 
     return jsonify(
         message=f'Task {job_id} added to the queue for project {prj_id}',
+        id=task.id
+    ), 202, {'Location': url_for('get_task', task_uuid=task.id)}
+
+
+@app.route('/task_manual/<int:prj_id>', methods=['POST'])
+def register_task_manual(prj_id: int):
+    """Register task manual in queue by project ID
+
+    Returns:
+        json: responce
+    """
+    # Check prroject ID
+    if not prj_id or not isinstance(prj_id, int):
+        abort(400, 'Token is invalid or corrupted')
+
+    # Deduplicate tasks
+    for q in queue.jobs:
+        if prj_id == q.args[0]['pipeline']['project_id']:
+            abort(409, f'Task for project {prj_id} already queued {q.id}')
+
+    # Add task to queue
+    task = queue.enqueue_call(
+        func=sync_permissions,
+        args=(prj_id,),
+        result_ttl=app.config['QUEUE_RESULT_TTL']
+    )
+
+    return jsonify(
+        message=f'Manual task added to the queue for project {prj_id}',
         id=task.id
     ), 202, {'Location': url_for('get_task', task_uuid=task.id)}
 
