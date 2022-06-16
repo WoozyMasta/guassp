@@ -1,40 +1,63 @@
 ---
 version: "3.9"
+
+x-image:
+  image: &image ghcr.io/woozymasta/guassp:latest
+
+x-api: &api
+  image: *image
+  command: api
+  env_file:
+    - docker-compose.env
+  depends_on:
+    redis:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "curl", "-Lsf", "0.0.0.0:5000/health"]
+    interval: 1s
+    timeout: 3s
+    retries: 10
+
+x-worker: &worker
+    image: *image
+    command: worker
+    env_file:
+      - docker-compose.env
+    depends_on:
+      redis:
+        condition: service_healthy
+
 services:
 
-  api:
-    image: ghcr.io/woozymasta/guassp:latest
-    command: api
-    env_file:
-      - docker-compose.env
+  api-1:
+    <<: *api
     ports:
       - 8000:5000
-    depends_on:
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-Lsf", "0.0.0.0:5000/health"]
-      interval: 1s
-      timeout: 3s
-      retries: 10
+  api-2:
+    <<: *api
+    ports:
+      - 8001:5000
 
+  worker-0:
+    <<: *worker
   worker-1:
-    image: ghcr.io/woozymasta/guassp:latest
-    command: worker
-    env_file:
-      - docker-compose.env
-    depends_on:
-      redis:
-        condition: service_healthy
-
+    <<: *worker
   worker-2:
-    image: ghcr.io/woozymasta/guassp:latest
-    command: worker
-    env_file:
-      - docker-compose.env
-    depends_on:
-      redis:
-        condition: service_healthy
+    <<: *worker
+  worker-3:
+    <<: *worker
+  worker-4:
+    <<: *worker
+  worker-5:
+    <<: *worker
+  worker-6:
+    <<: *worker
+  worker-7:
+    <<: *worker
+  worker-8:
+    <<: *worker
+  worker-9:
+    <<: *worker
 
   exporter:
     image: ghcr.io/woozymasta/guassp:latest

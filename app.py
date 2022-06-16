@@ -510,7 +510,7 @@ def register_task_manual(prj_id: int):
     """
     # Check prroject ID
     if not prj_id or not isinstance(prj_id, int):
-        abort(400, 'Token is invalid or corrupted')
+        abort(400, 'Project ID invalid or corrupted')
 
     # Deduplicate tasks
     for q in queue.jobs:
