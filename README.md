@@ -8,6 +8,39 @@ from GitLab project membership and visibility.
 
 ![GitLab access levels mapped to SonarQube permissions][permissions scheme]
 
+## Installation
+
+### Container images
+
+Release images are published to both registries:
+
+```text
+ghcr.io/woozymasta/guassp:latest
+docker.io/woozymasta/guassp:latest
+```
+
+### Release binaries
+
+Download the latest binary for your operating system and architecture:
+
+**Architecture** | **macOS**       | **Linux**       | **Windows**
+---------------- | --------------- | --------------- | ----------------
+**AMD64**        | [macOS amd64][] | [Linux amd64][] | [Windows amd64][]
+**ARM64**        | [macOS arm64][] | [Linux arm64][] | [Windows arm64][]
+
+For Linux AMD64, install the binary with:
+
+```sh
+curl -sSfLo guassp \
+  https://github.com/WoozyMasta/guassp/releases/latest/download/guassp-linux-amd64
+sudo install -m 0755 guassp /usr/local/bin/guassp
+rm guassp
+guassp -v
+```
+
+For systemd installation,
+see the [systemd setup guide](./deploy/systemd/README.md).
+
 ## Start
 
 1. Copy the [example configuration][config example] to `guassp.yaml`.
@@ -295,6 +328,12 @@ for CI sync; leave it disabled when the client can send a request header.
 [config example]: ./internal/config/generated/guassp.example.yaml
 [config]: ./CONFIG.md
 [kustomize]: ./deploy/kustomize/README.md
+[macOS amd64]: https://github.com/WoozyMasta/guassp/releases/latest/download/guassp-darwin-amd64
+[macOS arm64]: https://github.com/WoozyMasta/guassp/releases/latest/download/guassp-darwin-arm64
+[Linux amd64]: https://github.com/WoozyMasta/guassp/releases/latest/download/guassp-linux-amd64
+[Linux arm64]: https://github.com/WoozyMasta/guassp/releases/latest/download/guassp-linux-arm64
+[Windows amd64]: https://github.com/WoozyMasta/guassp/releases/latest/download/guassp-windows-amd64.exe
+[Windows arm64]: https://github.com/WoozyMasta/guassp/releases/latest/download/guassp-windows-arm64.exe
 [gitlab tokens]: https://docs.gitlab.com/security/tokens/
 [token scopes]: https://docs.gitlab.com/security/tokens/access_token_scopes/
 [job tokens]: https://docs.gitlab.com/ci/jobs/ci_job_token/

@@ -1,0 +1,21 @@
+[Unit]
+Description=GUASSP - GitLab User Access Synchronization for SonarQube Projects
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=guassp
+Group=guassp
+WorkingDirectory=/etc/guassp
+EnvironmentFile=/etc/guassp/guassp.env
+ExecStart=/usr/local/bin/guassp /etc/guassp/guassp.yaml
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
