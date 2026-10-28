@@ -56,6 +56,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Set image repository
+        run: printf 'IMAGE_REPOSITORY=%s\n' "${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
         with:
@@ -80,8 +83,8 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: |
-            ghcr.io/woozymasta/guassp
-            docker.io/woozymasta/guassp
+            ghcr.io/${{ env.IMAGE_REPOSITORY }}
+            docker.io/${{ env.IMAGE_REPOSITORY }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -107,20 +110,20 @@ jobs:
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: |
-          cosign sign --yes "ghcr.io/woozymasta/guassp@$DIGEST"
-          cosign sign --yes "docker.io/woozymasta/guassp@$DIGEST"
+          cosign sign --yes "ghcr.io/$IMAGE_REPOSITORY@$DIGEST"
+          cosign sign --yes "docker.io/$IMAGE_REPOSITORY@$DIGEST"
 
       - name: Attest GitHub Container Registry image
         uses: actions/attest@v4
         with:
-          subject-name: ghcr.io/woozymasta/guassp
+          subject-name: ghcr.io/${{ env.IMAGE_REPOSITORY }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
       - name: Attest Docker Hub image
         uses: actions/attest@v4
         with:
-          subject-name: docker.io/woozymasta/guassp
+          subject-name: docker.io/${{ env.IMAGE_REPOSITORY }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
@@ -131,6 +134,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+
+      - name: Set image repository
+        run: printf 'IMAGE_REPOSITORY=%s\n' "${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
       - name: Download release artifacts
         uses: actions/download-artifact@v4
@@ -148,20 +154,20 @@ jobs:
             make release-notes
             printf '## Container images\n\n'
             printf '```sh\n'
-            printf 'ghcr.io/woozymasta/guassp:%s\n' "$image_tag"
-            printf 'docker.io/woozymasta/guassp:%s\n' "$image_tag"
+            printf 'ghcr.io/%s:%s\n' "$IMAGE_REPOSITORY" "$image_tag"
+            printf 'docker.io/%s:%s\n' "$IMAGE_REPOSITORY" "$image_tag"
             printf '```\n\n'
           } > release.md
 
       - name: Publish Docker Hub description
+        env:
+          REGDOC_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          REGDOC_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           curl -sSfLo ./regdoc --retry 3 \
             https://github.com/WoozyMasta/regdoc/releases/download/v0.4.0/regdoc-linux-amd64
           chmod +x ./regdoc
-          ./regdoc docker.io/woozymasta/kube-dump README.md
-        env:
-          REGDOC_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          REGDOC_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          ./regdoc "docker.io/$IMAGE_REPOSITORY" README.md
 
       - name: Create GitHub release
         uses: ncipollo/release-action@v1
