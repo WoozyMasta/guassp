@@ -90,10 +90,10 @@ type statsPageData struct {
 }
 
 type statsRun struct {
-	observability.Run
 	ProjectName string
 	GitLabURL   string
 	SonarLinks  []sonarProjectLink
+	observability.Run
 }
 
 type sonarProjectLink struct {
