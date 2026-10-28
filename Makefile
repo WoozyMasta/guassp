@@ -127,7 +127,7 @@ align-fix:
 
 .PHONY: tools tool-golangci-lint tool-betteralign tool-cyclonedx tool-schemadoc
 
-tools: tool-golangci-lint tool-betteralign tool-govulncheck
+tools: tool-golangci-lint tool-betteralign tool-govulncheck tool-schemadoc
 
 tool-golangci-lint:
 	$(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
