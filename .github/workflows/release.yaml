@@ -1,0 +1,172 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+
+      - uses: rvben/rumdl@v0
+
+      - name: Run CI
+        run: make ci test-race
+
+  build-binaries:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+
+      - name: Build release artifacts
+        run: make release
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-artifacts
+          path: build/*
+          if-no-files-found: error
+
+  publish-containers:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: |
+            ghcr.io/woozymasta/guassp
+            docker.io/woozymasta/guassp
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+
+      - name: Build and push images
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.1.0
+
+      - name: Sign container images
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          cosign sign --yes "ghcr.io/woozymasta/guassp@$DIGEST"
+          cosign sign --yes "docker.io/woozymasta/guassp@$DIGEST"
+
+      - name: Attest GitHub Container Registry image
+        uses: actions/attest@v4
+        with:
+          subject-name: ghcr.io/woozymasta/guassp
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest Docker Hub image
+        uses: actions/attest@v4
+        with:
+          subject-name: docker.io/woozymasta/guassp
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  release:
+    needs: [build-binaries, publish-containers]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: build
+
+      - name: Build release notes
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          image_tag="${VERSION#v}"
+          {
+            printf '## Changes\n'
+            make release-notes
+            printf '## Container images\n\n'
+            printf '```sh\n'
+            printf 'ghcr.io/woozymasta/guassp:%s\n' "$image_tag"
+            printf 'docker.io/woozymasta/guassp:%s\n' "$image_tag"
+            printf '```\n\n'
+          } > release.md
+
+      - name: Publish Docker Hub description
+        run: |
+          curl -sSfLo ./regdoc --retry 3 \
+            https://github.com/WoozyMasta/regdoc/releases/download/v0.4.0/regdoc-linux-amd64
+          chmod +x ./regdoc
+          ./regdoc docker.io/woozymasta/kube-dump README.md
+        env:
+          REGDOC_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          REGDOC_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Create GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          bodyFile: release.md
+          artifacts: ./build/*

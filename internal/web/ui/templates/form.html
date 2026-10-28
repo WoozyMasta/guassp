@@ -1,0 +1,150 @@
+{{define "form"}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GUASSP | Project sync</title>
+  <link rel="stylesheet" href="{{publicPath "/assets/style.css"}}">
+</head>
+<body>
+  <div class="topbar">
+    <div class="shell topbar-inner">
+      <a class="brand" href="{{publicPath "/"}}" aria-label="Guassp home">
+        <span class="brand-mark" aria-hidden="true">G</span>
+        <span class="brand-name">GUASSP</span>
+      </a>
+      <div class="top-meta">
+        <strong>G</strong>itLab <strong>U</strong>ser <strong>A</strong>ccess
+        <strong>S</strong>ynchronization for <strong>S</strong>onarQube
+        <strong>P</strong>rojects
+      </div>
+      <nav class="nav" aria-label="Main navigation">
+        <a href="{{publicPath "/"}}">Console</a>
+        <a href="{{publicPath "/stats"}}">Statistics</a>
+        <label class="theme-toggle" for="theme-toggle">
+          <span>Light</span>
+          <input id="theme-toggle" type="checkbox" aria-label="Use light color theme">
+        </label>
+      </nav>
+    </div>
+  </div>
+
+  <main class="shell">
+    <div class="page-heading">
+      <div>
+        <span class="eyebrow">Operations / Manual run</span>
+        <h1>Project synchronization</h1>
+        <p>Queue an access sync for a GitLab project.</p>
+      </div>
+      <span class="version">{{if .Version}}{{.Version}}{{else}}development build{{end}}</span>
+    </div>
+
+    <div class="columns">
+      <section class="panel" aria-labelledby="manual-title">
+        <div class="panel-header">
+          <span class="eyebrow">Manual operation</span>
+          <h2 id="manual-title">Queue a project</h2>
+        </div>
+        <div class="panel-body">
+          {{if .Error}}<p class="notice notice-error" role="alert">{{.Error}}</p>{{end}}
+          {{if .Queued}}
+          <div class="notice notice-success" aria-live="polite">
+            <strong>Synchronization queued</strong>
+            <div>{{.Project}} (GitLab project {{.ProjectID}}) is queued{{if .Coalesced}} with existing work{{end}}.</div>
+          </div>
+          {{end}}
+          <form method="post" action="{{publicPath "/"}}">
+            <label class="field-label" for="project">GitLab project ID, path or URL</label>
+            <input id="project" name="project" type="text" value="{{.Input}}" required maxlength="4096" autocomplete="off">
+            <p class="help-text">Use a project ID, a namespace path, or its canonical GitLab URL.</p>
+            <button type="submit">Queue synchronization</button>
+          </form>
+          {{if .ManualFullSync}}
+          <hr>
+          {{if .FullSyncAccepted}}
+          <div class="notice notice-success" aria-live="polite">
+            <strong>Full synchronization queued</strong>
+            <div>Project bindings will be refreshed and all discovered projects queued.</div>
+          </div>
+          {{else if .FullSyncRunning}}
+          <p class="subtle">Full synchronization is running.</p>
+          {{else if .FullSyncQueued}}
+          <p class="subtle">Full synchronization is queued.</p>
+          {{end}}
+          <form method="post" action="{{publicPath "/"}}">
+            <input type="hidden" name="action" value="full_sync">
+            <button type="submit" {{if or .FullSyncQueued .FullSyncRunning}}disabled{{end}}>Queue full synchronization</button>
+            <p class="help-text">Refresh bindings and queue synchronization for every discovered project.</p>
+          </form>
+          {{end}}
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="endpoints-title">
+        <div class="panel-header">
+          <span class="eyebrow">HTTP interface</span>
+          <h2 id="endpoints-title">Available endpoints</h2>
+        </div>
+        <div class="endpoint-list">
+          <div class="endpoint">
+            <span class="endpoint-method">GET</span>
+            <a class="endpoint-path" href="{{publicPath "/healthz"}}">{{publicPath "/healthz"}}</a>
+            <span class="endpoint-description">Liveness probe</span>
+          </div>
+          <div class="endpoint">
+            <span class="endpoint-method">GET</span>
+            <a class="endpoint-path" href="{{publicPath "/readyz"}}">{{publicPath "/readyz"}}</a>
+            <span class="endpoint-description">Readiness probe</span>
+          </div>
+          <div class="endpoint">
+            <span class="endpoint-method">GET</span>
+            <a class="endpoint-path" href="{{publicPath "/metrics"}}">{{publicPath "/metrics"}}</a>
+            <span class="endpoint-description">Optional Prometheus metrics; bearer or Basic auth</span>
+          </div>
+          <div class="endpoint">
+            <span class="endpoint-method">GET</span>
+            <a class="endpoint-path" href="{{publicPath "/api/v1/status"}}">{{publicPath "/api/v1/status"}}</a>
+            <span class="endpoint-description">Service and upstream state</span>
+          </div>
+          <div class="endpoint">
+            <span class="endpoint-method">GET</span>
+            <a class="endpoint-path" href="{{publicPath "/api/v1/runs"}}">{{publicPath "/api/v1/runs"}}</a>
+            <span class="endpoint-description">Recent runs; optional <code>limit</code></span>
+          </div>
+          <div class="endpoint">
+            <span class="endpoint-method">POST</span>
+            <a class="endpoint-path" href="{{publicPath "/api/v1/sync"}}">{{publicPath "/api/v1/sync"}}</a>
+            <span class="endpoint-description">CI sync; JOB-TOKEN plus API bearer when configured</span>
+          </div>
+          <div class="endpoint">
+            <span class="endpoint-method">POST</span>
+            <a class="endpoint-path" href="{{publicPath "/api/v1/projects/sync"}}">{{publicPath "/api/v1/projects/sync"}}</a>
+            <span class="endpoint-description">Manual JSON sync; API token or web Basic</span>
+          </div>
+          {{if .ManualFullSync}}
+          <div class="endpoint">
+            <span class="endpoint-method">POST</span>
+            <a class="endpoint-path" href="{{publicPath "/api/v1/full-sync"}}">{{publicPath "/api/v1/full-sync"}}</a>
+            <span class="endpoint-description">Refresh bindings and queue all projects; API bearer when configured</span>
+          </div>
+          {{end}}
+          <div class="endpoint">
+            <span class="endpoint-method">GET/POST</span>
+            <a class="endpoint-path" href="{{publicPath "/"}}">{{publicPath "/"}}</a>
+            <span class="endpoint-description">Manual sync form; Basic auth when configured</span>
+          </div>
+          <div class="endpoint">
+            <span class="endpoint-method">GET</span>
+            <a class="endpoint-path" href="{{publicPath "/stats"}}">{{publicPath "/stats"}}</a>
+            <span class="endpoint-description">Operational statistics</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="shell footer">GUASSP · GitLab User Access Synchronization for SonarQube Projects</footer>
+</body>
+</html>
+{{end}}

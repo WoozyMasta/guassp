@@ -1,0 +1,64 @@
+version: "2"
+run:
+  tests: true
+
+linters:
+  enable:
+    - modernize
+    - prealloc
+    - tagliatelle
+    - perfsprint
+    - asciicheck
+    - bidichk
+    - decorder
+    - dupl
+    - gocritic
+    - bodyclose
+    - gosec
+    - nilerr
+    - predeclared
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - tparallel
+    - unconvert
+    - unparam
+    - whitespace
+    - staticcheck
+    - zerologlint
+    - goheader
+
+  exclusions:
+    generated: lax
+    presets:
+      - common-false-positives
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+
+  settings:
+    goheader:
+      template: |-
+        SPDX-License-Identifier: MIT
+        Copyright (c) 2022-2026 WoozyMasta
+        Source: github.com/woozymasta/guassp
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+          yaml: snake
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

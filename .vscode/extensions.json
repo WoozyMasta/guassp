@@ -1,9 +1,0 @@
-{
-  "recommendations": [
-      "ms-python.python",
-      "woozy-masta.shell-script-ide",
-      "davidanson.vscode-markdownlint",
-      "yzhang.markdown-all-in-one",
-      "stkb.rewrap"
-  ]
-}

@@ -1,0 +1,448 @@
+{
+  "$defs": {
+    "APIOptions": {
+      "additionalProperties": false,
+      "description": "APIOptions controls authentication for JSON API endpoints.",
+      "properties": {
+        "token": {
+          "description": "Token requires this bearer token on every /api/* request. On CI synchronization, also send the GitLab job token in the JOB-TOKEN header. Leave it empty to keep the API token check disabled.",
+          "examples": [
+            "${GUASSP_API_TOKEN:-}"
+          ],
+          "type": "string",
+          "writeOnly": true,
+          "x-order": "10"
+        }
+      },
+      "type": "object"
+    },
+    "CompatibilityOptions": {
+      "additionalProperties": false,
+      "description": "CompatibilityOptions enables an alternate request format for CI synchronization.",
+      "properties": {
+        "job_token_body": {
+          "description": "JobTokenBody allows the CI synchronization endpoint to read a job token from the JSON request body. Enable it when a client cannot send the token in the request header.",
+          "type": "boolean",
+          "x-order": "10"
+        }
+      },
+      "type": "object"
+    },
+    "Config": {
+      "additionalProperties": false,
+      "description": "Config describes how Guassp connects to GitLab and SonarQube and keeps project access in sync.",
+      "properties": {
+        "api": {
+          "$ref": "#/$defs/APIOptions",
+          "description": "API controls authentication for the JSON API endpoints. Configure a token to reject unauthenticated API requests before they can trigger upstream calls.",
+          "x-order": "40"
+        },
+        "compat": {
+          "$ref": "#/$defs/CompatibilityOptions",
+          "description": "Compat enables the alternate request format supported for CI synchronization. Leave this section unset when clients send the job token in the request header.",
+          "x-order": "120"
+        },
+        "discovery": {
+          "$ref": "#/$defs/DiscoveryOptions",
+          "description": "Discovery controls how a GitLab project is associated with a SonarQube project and when Guassp refreshes its view of all GitLab-bound projects.",
+          "x-order": "90"
+        },
+        "gitlab": {
+          "$ref": "#/$defs/GitLabOptions",
+          "description": "GitLab contains the source server address and credentials used to discover projects, memberships, and user information.",
+          "x-order": "20"
+        },
+        "log": {
+          "$ref": "#/$defs/logger_Options",
+          "description": "Log controls the format, destination, and detail level of process logs. Use debug or trace temporarily when investigating synchronization decisions or API behavior.",
+          "x-order": "110"
+        },
+        "metrics": {
+          "$ref": "#/$defs/MetricsOptions",
+          "description": "Metrics controls whether Prometheus metrics are served and how that endpoint is protected.",
+          "x-order": "60"
+        },
+        "permissions": {
+          "$ref": "#/$defs/PermissionMapping",
+          "description": "Permissions defines which SonarQube project permissions Guassp manages for each GitLab project access level. Use it to adapt GitLab roles to the permissions enabled in SonarQube. If omitted, Guassp uses its built-in role mapping. Providing a mapping replaces that policy; a level with an empty list has no managed permissions.",
+          "x-order": "70"
+        },
+        "runtime": {
+          "$ref": "#/$defs/RuntimeOptions",
+          "description": "Runtime controls the HTTP listener and the number of projects reconciled concurrently.",
+          "x-order": "10"
+        },
+        "sonarqube": {
+          "$ref": "#/$defs/SonarQubeOptions",
+          "description": "SonarQube contains the destination server address and credentials used for API requests. ALM and group settings further narrow which bindings or users are managed.",
+          "x-order": "30"
+        },
+        "users": {
+          "$ref": "#/$defs/UserOptions",
+          "description": "Users controls how GitLab members are matched to SonarQube users and whether accounts known to be inactive in GitLab are deactivated in SonarQube.",
+          "x-order": "100"
+        },
+        "visibility": {
+          "$ref": "#/$defs/VisibilityOptions",
+          "description": "Visibility controls whether SonarQube project visibility follows the corresponding GitLab project. This is useful when public and private projects must retain the same exposure after synchronization. Set enabled to false to leave SonarQube visibility unchanged, or provide a map to choose how each GitLab visibility is represented.",
+          "x-order": "80"
+        },
+        "web": {
+          "$ref": "#/$defs/WebOptions",
+          "description": "Web controls the browser pages and form-based manual project synchronization. It can also protect these interactive operations with HTTP Basic authentication.",
+          "x-order": "50"
+        }
+      },
+      "required": [
+        "sonarqube",
+        "gitlab"
+      ],
+      "type": "object"
+    },
+    "DiscoveryOptions": {
+      "additionalProperties": false,
+      "description": "DiscoveryOptions controls how Guassp finds the SonarQube project for a GitLab project and refreshes the set of projects to synchronize.",
+      "properties": {
+        "full_sync_at": {
+          "default": "03:00",
+          "description": "FullSyncAt schedules a daily refresh of GitLab-bound SonarQube projects at local service time. Leave it empty to turn off scheduled full discovery cycles.",
+          "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$|^$",
+          "type": "string",
+          "x-order": "10"
+        },
+        "manual_full_sync": {
+          "description": "ManualFullSync enables POST /api/v1/full-sync and its button in the web console. The API uses api.token and the button follows the web Basic authentication settings. Leave it disabled when users must not trigger a full sync.",
+          "type": "boolean",
+          "x-order": "20"
+        },
+        "path_fallback": {
+          "description": "PathFallback lets Guassp look for a SonarQube project with the same full GitLab path when no usable ALM binding identifies one. It is intended for installations where project bindings are missing; ambiguous matches are not selected.",
+          "type": "boolean",
+          "x-order": "20"
+        }
+      },
+      "type": "object"
+    },
+    "GitLabOptions": {
+      "additionalProperties": false,
+      "description": "GitLabOptions configures the GitLab instance used as the source of projects, memberships, and user identities.",
+      "properties": {
+        "skip_users": {
+          "description": "SkipUsers lists GitLab user IDs whose access Guassp must not manage. Use this to preserve manually maintained SonarQube access for selected accounts.",
+          "items": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "type": "array",
+          "x-order": "30"
+        },
+        "token": {
+          "description": "Token authenticates Guassp's GitLab API requests. Use the read_api scope and grant its account access to every bound project and its effective member list. The scope permits API reads; account access determines which projects and memberships are visible. This service credential is separate from CI job tokens used for individual sync requests.",
+          "examples": [
+            "${GITLAB_TOKEN:?set GITLAB_TOKEN}"
+          ],
+          "minLength": 1,
+          "type": "string",
+          "writeOnly": true,
+          "x-order": "20"
+        },
+        "url": {
+          "description": "URL is the address of the GitLab instance. Include any path prefix used by a self-managed installation so API requests reach the correct instance.",
+          "examples": [
+            "https://gitlab.example.com"
+          ],
+          "format": "uri",
+          "minLength": 1,
+          "pattern": "^https?://",
+          "type": "string",
+          "x-order": "10"
+        }
+      },
+      "required": [
+        "url",
+        "token"
+      ],
+      "type": "object"
+    },
+    "MetricsOptions": {
+      "additionalProperties": false,
+      "description": "MetricsOptions controls the Prometheus endpoint and its optional authentication.",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Enabled serves the Prometheus metrics endpoint at /metrics. Disable it when metrics are collected through another path or should not be exposed.",
+          "type": "boolean",
+          "x-order": "10"
+        },
+        "include_runtime": {
+          "description": "IncludeRuntime adds Go runtime and operating-system process metrics to /metrics. Enable it for runtime diagnostics such as goroutine count, memory use, and process CPU time.",
+          "type": "boolean",
+          "x-order": "20"
+        },
+        "password": {
+          "description": "Password is the HTTP Basic password paired with Username.",
+          "examples": [
+            "${METRICS_PASSWORD:-}"
+          ],
+          "type": "string",
+          "writeOnly": true,
+          "x-order": "50"
+        },
+        "token": {
+          "description": "Token requires this bearer token when a client requests /metrics. Leave it empty to disable token authentication; do not combine it with Basic credentials.",
+          "examples": [
+            "${METRICS_TOKEN:-}"
+          ],
+          "type": "string",
+          "writeOnly": true,
+          "x-order": "30"
+        },
+        "username": {
+          "description": "Username enables HTTP Basic authentication for /metrics when paired with Password. Do not combine Basic credentials with Token.",
+          "examples": [
+            "${METRICS_USERNAME:-}"
+          ],
+          "type": "string",
+          "x-order": "40"
+        }
+      },
+      "type": "object"
+    },
+    "PermissionMapping": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "description": "PermissionMapping associates exact numeric GitLab project access levels with SonarQube project permissions.",
+      "type": "object"
+    },
+    "RuntimeOptions": {
+      "additionalProperties": false,
+      "description": "RuntimeOptions configures the network endpoint and concurrency of the running service.",
+      "properties": {
+        "listen": {
+          "default": ":8080",
+          "description": "Listen is the local address where Guassp accepts HTTP connections for its API, health probes, optional metrics, and enabled web interface.",
+          "type": "string",
+          "x-order": "10"
+        },
+        "run_history": {
+          "default": 256,
+          "description": "RunHistory sets how many completed project synchronizations remain available in memory. Increase it to keep more recent runs on the status page and run-history API.",
+          "maximum": 4096,
+          "minimum": 1,
+          "type": "integer",
+          "x-order": "30"
+        },
+        "workers": {
+          "default": 4,
+          "description": "Workers controls how many project synchronizations can run at the same time. Increase it when the service needs to process a large queue faster; keep it modest to limit concurrent load on GitLab and SonarQube.",
+          "minimum": 1,
+          "type": "integer",
+          "x-order": "20"
+        }
+      },
+      "required": [
+        "workers"
+      ],
+      "type": "object"
+    },
+    "SonarQubeOptions": {
+      "additionalProperties": false,
+      "description": "SonarQubeOptions configures the SonarQube instance where project access and visibility are reconciled.",
+      "properties": {
+        "alm_key": {
+          "description": "ALMKey selects the GitLab ALM configuration whose project bindings Guassp should use when SonarQube has more than one GitLab configuration. Leave it empty to use the available binding without an additional ALM filter.",
+          "examples": [
+            "gitlab"
+          ],
+          "type": "string",
+          "x-order": "30"
+        },
+        "skip_groups": {
+          "description": "SkipGroups names SonarQube groups whose members Guassp should leave untouched. A user in any listed group is excluded from direct permission reconciliation, which helps preserve access managed through local or privileged groups.",
+          "items": {
+            "minLength": 1,
+            "pattern": "[^[:space:]]",
+            "type": "string"
+          },
+          "type": "array",
+          "x-order": "40"
+        },
+        "token": {
+          "description": "Token authenticates Guassp's SonarQube Web API requests and must be a user token. Current project discovery and user directory API calls require global Administer System permission. User deactivation also requires this permission and affects the entire SonarQube instance.",
+          "examples": [
+            "${SONARQUBE_TOKEN:?set SONARQUBE_TOKEN}"
+          ],
+          "minLength": 1,
+          "type": "string",
+          "writeOnly": true,
+          "x-order": "20"
+        },
+        "url": {
+          "description": "URL is the address of the SonarQube instance. Include its context path when the server is hosted below a URL prefix.",
+          "examples": [
+            "https://sonar.example.com"
+          ],
+          "format": "uri",
+          "minLength": 1,
+          "pattern": "^https?://",
+          "type": "string",
+          "x-order": "10"
+        }
+      },
+      "required": [
+        "url",
+        "token"
+      ],
+      "type": "object"
+    },
+    "UserOptions": {
+      "additionalProperties": false,
+      "description": "UserOptions controls how project members are associated with SonarQube accounts and whether GitLab account state can trigger SonarQube deactivation.",
+      "properties": {
+        "deactivation": {
+          "description": "Deactivation allows Guassp to deactivate a matched SonarQube account when GitLab reports the corresponding user in a known inactive state. This applies to the account itself, rather than removing access only from the current project.",
+          "type": "boolean",
+          "x-order": "20"
+        },
+        "match": {
+          "default": "external",
+          "description": "Match selects the identity used to find a SonarQube account for each GitLab member. The external mode is intended for accounts linked to GitLab in SonarQube. Choose email or name when your SonarQube accounts are identified by those attributes.",
+          "enum": [
+            "external",
+            "email",
+            "name"
+          ],
+          "type": "string",
+          "x-order": "10"
+        }
+      },
+      "type": "object"
+    },
+    "VisibilityOptions": {
+      "additionalProperties": false,
+      "description": "VisibilityOptions controls whether and how GitLab project visibility is reflected in SonarQube.",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Enabled turns visibility reconciliation on or off. When disabled, Guassp does not change the existing SonarQube project visibility.",
+          "type": "boolean",
+          "x-order": "10"
+        },
+        "map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Map translates GitLab public, internal, and private visibility into SonarQube public or private visibility. A custom map replaces the built-in mapping, so include each GitLab visibility that can occur. If omitted, the built-in mapping is used.",
+          "type": "object",
+          "x-order": "20"
+        }
+      },
+      "type": "object"
+    },
+    "WebOptions": {
+      "additionalProperties": false,
+      "description": "WebOptions controls the browser interface and form-based manual synchronization.",
+      "properties": {
+        "base_path": {
+          "default": "",
+          "description": "BasePath is the public URL path prefix used when GUASSP is published below a reverse-proxy path. The service accepts requests both with and without this prefix; leave it empty when served at the host root.",
+          "pattern": "^$|^(/[A-Za-z0-9_-]+)+$",
+          "type": "string",
+          "x-order": "20"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Enabled serves the rendered pages and enables the manual synchronization interface. Disabling it removes those interactive features while leaving the service API and operational endpoints available.",
+          "type": "boolean",
+          "x-order": "10"
+        },
+        "password": {
+          "description": "Password is the credential paired with Username for HTTP Basic authentication. Keep it in a secret store or environment-specific configuration rather than a checked-in example file.",
+          "examples": [
+            "${WEB_PASSWORD:?set WEB_PASSWORD}"
+          ],
+          "type": "string",
+          "writeOnly": true,
+          "x-order": "40"
+        },
+        "sync_rate": {
+          "default": "10/m",
+          "description": "SyncRate limits how frequently a client can request a manual project sync. Use it to prevent accidental or abusive repeated requests to the upstream services; set it to zero when another layer already provides the required request control.",
+          "pattern": "^(0|[0-9]*[1-9][0-9]*/[smh])$",
+          "type": "string",
+          "x-order": "50"
+        },
+        "username": {
+          "description": "Username is the account name for HTTP Basic authentication on the browser interface and form-based manual synchronization. Set it together with Password to protect those operations.",
+          "examples": [
+            "operator"
+          ],
+          "type": "string",
+          "x-order": "30"
+        }
+      },
+      "type": "object"
+    },
+    "logger_Options": {
+      "additionalProperties": false,
+      "description": "Options configures the process log format, destination, and verbosity.",
+      "properties": {
+        "format": {
+          "default": "json",
+          "description": "Format selects structured JSON for log processing or readable text for interactive terminal use.",
+          "enum": [
+            "json",
+            "text"
+          ],
+          "type": "string",
+          "x-order": "10"
+        },
+        "level": {
+          "default": "info",
+          "description": "Level sets the least severe events to emit. Use debug or trace while investigating behavior, then return to a quieter level for routine operation.",
+          "enum": [
+            "trace",
+            "debug",
+            "info",
+            "warn",
+            "error",
+            "disabled"
+          ],
+          "type": "string",
+          "x-order": "20"
+        },
+        "output": {
+          "default": "stderr",
+          "description": "Output sends logs to stderr, stdout, or the named file. File output is useful when the runtime does not collect process streams directly.",
+          "type": "string",
+          "x-order": "30"
+        },
+        "timestamp": {
+          "default": "rfc3339",
+          "description": "TimestampFormat controls how each log entry records its time. Choose a format that matches the log collector or omit timestamps when the runtime adds them.",
+          "enum": [
+            "rfc3339",
+            "unix",
+            "unixms",
+            "none"
+          ],
+          "type": "string",
+          "x-order": "40"
+        },
+        "truncate": {
+          "description": "FileTruncate clears the selected log file on startup instead of preserving earlier entries and appending new ones.",
+          "type": "boolean",
+          "x-order": "50"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/woozymasta/guassp/internal/config/config",
+  "$ref": "#/$defs/Config",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
