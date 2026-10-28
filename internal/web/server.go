@@ -103,6 +103,8 @@ func NewServer(
 		scheduler:            syncScheduler,
 		basePath:             options.BasePath,
 		projectResolver:      resolver,
+		gitLabBaseURL:        options.GitLabBaseURL,
+		sonarQubeBaseURL:     options.SonarQubeBaseURL,
 		limiter:              limiter,
 		basicUser:            options.BasicUser,
 		basicPassword:        options.BasicPassword,

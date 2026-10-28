@@ -45,6 +45,8 @@ type Options struct {
 	FullSync FullSyncController
 	// GitLabBaseURL restricts accepted manual project URLs to this instance.
 	GitLabBaseURL *url.URL
+	// SonarQubeBaseURL builds links to synchronized SonarQube projects.
+	SonarQubeBaseURL *url.URL
 	// Observability provides run history, metrics, and upstream status.
 	Observability *observability.Service
 	// BasePath is the optional public URL path prefix for routes and generated page links.
@@ -95,6 +97,8 @@ type Server struct {
 	scheduler        SyncScheduler
 	fullSync         FullSyncController
 	projectResolver  *projectResolver
+	gitLabBaseURL    *url.URL
+	sonarQubeBaseURL *url.URL
 	limiter          *rate.Limiter
 	mux              *http.ServeMux
 	templates        *template.Template

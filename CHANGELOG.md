@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning][].
 ### Added
 
 * Support selecting the configuration file with `GUASSP_CONFIG_PATH`.
+* Link projects in recent activity to their GitLab and SonarQube pages.
 
 ## [0.3.0][] - 2026-10-28
 

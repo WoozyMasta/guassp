@@ -10,6 +10,8 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -56,7 +58,7 @@ type statsPageData struct {
 	// Uptime is formatted for display without exposing process internals.
 	Uptime string
 	// Runs contains the newest bounded reconciliation summaries.
-	Runs []observability.Run
+	Runs []statsRun
 	// FullSync contains the latest scheduled discovery state.
 	FullSync scheduler.FullSyncStatus
 	// Totals aggregates recent outcomes and permission writes.
@@ -85,6 +87,18 @@ type statsPageData struct {
 	HasScheduler bool
 	// HasFullSync reports whether scheduled discovery is configured.
 	HasFullSync bool
+}
+
+type statsRun struct {
+	observability.Run
+	ProjectName string
+	GitLabURL   string
+	SonarLinks  []sonarProjectLink
+}
+
+type sonarProjectLink struct {
+	Key string
+	URL string
 }
 
 // runTotals summarizes recent runs without exposing per-user data.
@@ -236,7 +250,7 @@ func (server *Server) statsPage(writer http.ResponseWriter, request *http.Reques
 		Version:            server.buildVersion,
 		Uptime:             time.Since(server.startedAt).Round(time.Second).String(),
 		Upstreams:          server.observability.Upstreams(),
-		Runs:               history[firstRun:lastRun],
+		Runs:               statsRuns(history[firstRun:lastRun], server.gitLabBaseURL, server.sonarQubeBaseURL),
 		RunPage:            currentPage,
 		RunPages:           pageCount,
 		PreviousRunPage:    max(1, currentPage-1),
@@ -280,6 +294,53 @@ func (server *Server) statsPage(writer http.ResponseWriter, request *http.Reques
 	server.renderPage(writer, http.StatusOK, "stats", page)
 }
 
+func statsRuns(runs []observability.Run, gitLabBaseURL, sonarQubeBaseURL *url.URL) []statsRun {
+	rows := make([]statsRun, 0, len(runs))
+	for _, run := range runs {
+		row := statsRun{Run: run}
+		if run.GitLabProject != "" {
+			row.ProjectName = path.Base(run.GitLabProject)
+			row.GitLabURL = projectURL(gitLabBaseURL, run.GitLabProject)
+		}
+		for _, key := range run.SonarProjects {
+			row.SonarLinks = append(row.SonarLinks, sonarProjectLink{
+				Key: key,
+				URL: sonarProjectURL(sonarQubeBaseURL, key),
+			})
+		}
+		rows = append(rows, row)
+	}
+
+	return rows
+}
+
+func projectURL(baseURL *url.URL, projectPath string) string {
+	if baseURL == nil || projectPath == "" {
+		return ""
+	}
+
+	projectURL := *baseURL
+	projectURL.Path = strings.TrimRight(projectURL.Path, "/") + "/" + strings.TrimLeft(projectPath, "/")
+	projectURL.RawPath = ""
+
+	return projectURL.String()
+}
+
+func sonarProjectURL(baseURL *url.URL, projectKey string) string {
+	if baseURL == nil || projectKey == "" {
+		return ""
+	}
+
+	projectURL := *baseURL
+	projectURL.Path = strings.TrimRight(projectURL.Path, "/") + "/dashboard"
+	projectURL.RawPath = ""
+	query := projectURL.Query()
+	query.Set("id", projectKey)
+	projectURL.RawQuery = query.Encode()
+
+	return projectURL.String()
+}
+
 // allowHTMLRequest applies the manual per-IP rate limit and renders form errors.
 func (server *Server) allowHTMLRequest(writer http.ResponseWriter, request *http.Request) bool {
 	remoteIP, _, err := net.SplitHostPort(request.RemoteAddr)
@@ -310,7 +371,8 @@ func (server *Server) renderPage(writer http.ResponseWriter, status int, name st
 	writer.Header().
 		Set("Content-Type", "text/html; charset=utf-8")
 	writer.Header().
-		Set("Content-Security-Policy", "default-src 'none'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+		Set("Content-Security-Policy",
+			"default-src 'none'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
 	writer.WriteHeader(status)
 
 	if err := server.templates.ExecuteTemplate(writer, name, data); err != nil {

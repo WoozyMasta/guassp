@@ -127,6 +127,7 @@ func New(cfg config.RuntimeConfig, logger zerolog.Logger) (*Service, error) {
 		StartedAt:            time.Now(),
 		FullSync:             fullSync,
 		GitLabBaseURL:        cfg.GitLabURL,
+		SonarQubeBaseURL:     cfg.SonarQubeURL,
 		BasePath:             cfg.Web.BasePath,
 		Observability:        observer,
 		APIToken:             cfg.API.Token,

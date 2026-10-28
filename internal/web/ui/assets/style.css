@@ -498,6 +498,22 @@ td {
   white-space: nowrap;
 }
 
+.run-project a {
+  margin-right: 5px;
+  text-decoration: none;
+}
+
+.run-project a:hover,
+.run-project a:focus-visible {
+  text-decoration: underline;
+}
+
+.run-project-id {
+  margin-left: 5px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
 th {
   color: var(--muted);
   font-size: 10px;

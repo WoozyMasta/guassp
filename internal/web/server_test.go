@@ -222,13 +222,17 @@ func TestSSRPagesProtectManualFormAndQueueProject(t *testing.T) {
 		ProjectID: 55,
 		Source:    "ci",
 		Result: reconcile.Result{
-			Status: reconcile.StatusSuccess,
-			Counts: reconcile.Counts{Grants: 2, Revokes: 1, Targets: 3},
-			Errors: []string{"sensitive upstream detail"},
+			Status:        reconcile.StatusSuccess,
+			GitLabProject: "foo/bar/my-project",
+			SonarProjects: []string{"sonar:my-project"},
+			Counts:        reconcile.Counts{Grants: 2, Revokes: 1, Targets: 3},
+			Errors:        []string{"sensitive upstream detail"},
 		},
 	})
+	sonarURL, _ := url.Parse("https://sonar.example.com/sonar")
 	server := newTestServer(t, validator, queue, Options{
 		BasicUser: "operator", BasicPassword: "password", Observability: observer,
+		SonarQubeBaseURL: sonarURL,
 		FullSync: fixedFullSyncStatus{status: scheduler.FullSyncStatus{
 			StartedAt: time.Now(), FinishedAt: time.Now(), NextAt: time.Now().Add(time.Hour),
 		}},
@@ -255,6 +259,13 @@ func TestSSRPagesProtectManualFormAndQueueProject(t *testing.T) {
 		!strings.Contains(statsBody, `<dt>Success</dt><dd class="state-good">1</dd>`) ||
 		!strings.Contains(statsBody, "<dt>Permission grants</dt><dd>2</dd>") ||
 		!strings.Contains(statsBody, "Next run") ||
+		!strings.Contains(statsBody, `href="https://gitlab.example.com/foo/bar/my-project"`) ||
+		!strings.Contains(statsBody, `href="https://sonar.example.com/sonar/dashboard?id=sonar%3Amy-project"`) ||
+		!strings.Contains(statsBody, ">[GitLab]</a>") ||
+		!strings.Contains(statsBody, ">[SonarQube]</a>") ||
+		!strings.Contains(statsBody, `class="run-project-name">my-project</span>`) ||
+		strings.Contains(statsBody, `class="run-project-name">foo/bar/my-project</span>`) ||
+		!strings.Contains(statsBody, `class="run-project-id">55</span>`) ||
 		strings.Contains(statsBody, "sensitive upstream detail") {
 		t.Fatalf("authenticated stats status=%d body=%s", stats.Code, stats.Body.String())
 	}

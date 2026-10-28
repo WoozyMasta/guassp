@@ -93,11 +93,18 @@
             <dd class="state-good">success</dd>
             {{end}}
             <dt>Last started</dt>
-            <dd>{{if .FullSync.StartedAt.IsZero}}—{{else}}{{.FullSync.StartedAt.Format "2006-01-02 15:04:05 MST"}}{{end}}</dd>
+            <dd>
+              {{if .FullSync.StartedAt.IsZero}}—{{else}}{{.FullSync.StartedAt.Format "2006-01-02 15:04:05 MST"}}{{end}}
+            </dd>
             <dt>Last finished</dt>
-            <dd>{{if .FullSync.FinishedAt.IsZero}}—{{else}}{{.FullSync.FinishedAt.Format "2006-01-02 15:04:05 MST"}}{{end}}</dd>
+            <dd>
+              {{if .FullSync.FinishedAt.IsZero}}—{{else}}
+              {{.FullSync.FinishedAt.Format "2006-01-02 15:04:05 MST"}}{{end}}
+            </dd>
             <dt>Next run</dt>
-            <dd>{{if .FullSync.NextAt.IsZero}}disabled{{else}}{{.FullSync.NextAt.Format "2006-01-02 15:04:05 MST"}}{{end}}</dd>
+            <dd>
+              {{if .FullSync.NextAt.IsZero}}disabled{{else}}{{.FullSync.NextAt.Format "2006-01-02 15:04:05 MST"}}{{end}}
+            </dd>
             <dt>GitLab projects</dt><dd>{{.FullSync.ProjectsFound}}</dd>
             <dt>SonarQube projects</dt><dd>{{.FullSync.SonarProjects}}</dd>
           </dl>
@@ -146,7 +153,19 @@
             <tr>
               <td>{{.FinishedAt.Format "2006-01-02 15:04:05 MST"}}</td>
               <td>{{.Source}}</td>
-              <td>{{if .GitLabProject}}{{.GitLabProject}}{{else}}{{.GitLabProjectID}}{{end}}</td>
+              <td class="run-project">
+                {{if .GitLabURL}}
+                <a href="{{.GitLabURL}}" target="_blank" rel="noopener noreferrer">[GitLab]</a>
+                {{end}}
+                {{range .SonarLinks}}
+                {{if .URL}}
+                <a href="{{.URL}}" target="_blank" rel="noopener noreferrer"
+                   title="SonarQube project {{.Key}}">[SonarQube]</a>
+                {{end}}
+                {{end}}
+                <span class="run-project-name">{{if .ProjectName}}{{.ProjectName}}{{else}}{{.GitLabProjectID}}{{end}}</span>
+                {{if .GitLabProject}}<span class="run-project-id">{{.GitLabProjectID}}</span>{{end}}
+              </td>
               <td class="result-{{.Result}}">{{.Result}}</td>
               <td>{{.Counts.Targets}}</td>
               <td>{{.Counts.Grants}}</td>
@@ -184,8 +203,12 @@
             <span class="{{if eq $status.State "ok"}}state-good{{else if eq $status.State "error"}}state-bad{{else}}state-warn{{end}}">
               {{$status.State}}
             </span>
-            {{if not $status.LastSuccessAt.IsZero}} · last success {{$status.LastSuccessAt.Format "2006-01-02 15:04:05 MST"}}{{end}}
-            {{if not $status.LastErrorAt.IsZero}} · last error {{$status.LastErrorAt.Format "2006-01-02 15:04:05 MST"}}{{end}}
+            {{if not $status.LastSuccessAt.IsZero}}
+            · last success {{$status.LastSuccessAt.Format "2006-01-02 15:04:05 MST"}}
+            {{end}}
+            {{if not $status.LastErrorAt.IsZero}}
+            · last error {{$status.LastErrorAt.Format "2006-01-02 15:04:05 MST"}}
+            {{end}}
           </dd>
         {{end}}
         </dl>
