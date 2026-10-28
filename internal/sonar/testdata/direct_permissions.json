@@ -1,0 +1,17 @@
+{
+  "users": [
+    {
+      "login": "alice",
+      "permissions": ["user", "codeviewer"]
+    },
+    {
+      "login": "bob",
+      "permissions": []
+    }
+  ],
+  "paging": {
+    "pageIndex": 1,
+    "pageSize": 100,
+    "total": 2
+  }
+}

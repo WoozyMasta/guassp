@@ -1,0 +1,204 @@
+{{define "stats"}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GUASSP | Statistics</title>
+  <link rel="stylesheet" href="{{publicPath "/assets/style.css"}}">
+</head>
+<body>
+  <div class="topbar">
+    <div class="shell topbar-inner">
+      <a class="brand" href="{{publicPath "/"}}" aria-label="Guassp home">
+        <span class="brand-mark" aria-hidden="true">G</span>
+        <span class="brand-name">GUASSP</span>
+      </a>
+      <div class="top-meta">
+        <strong>G</strong>itLab <strong>U</strong>ser <strong>A</strong>ccess
+        <strong>S</strong>ynchronization for <strong>S</strong>onarQube
+        <strong>P</strong>rojects
+      </div>
+      <nav class="nav" aria-label="Main navigation">
+        <a href="{{publicPath "/"}}">Console</a>
+        <a href="{{publicPath "/stats"}}" aria-current="page">Statistics</a>
+        <label class="theme-toggle" for="theme-toggle">
+          <span>Light</span>
+          <input id="theme-toggle" type="checkbox" aria-label="Use light color theme">
+        </label>
+      </nav>
+    </div>
+  </div>
+
+  <main class="shell">
+    <div class="page-heading">
+      <div>
+        <span class="eyebrow">Operations / Service status</span>
+        <h1>Service statistics</h1>
+        <p>Runtime state and recent reconciliation activity.</p>
+      </div>
+      <span class="version">{{if .Version}}{{.Version}}{{else}}development build{{end}} · uptime {{.Uptime}}</span>
+    </div>
+
+    <section class="stats-grid" aria-label="Scheduler summary">
+      <div class="metric">
+        <span class="metric-label">High queue</span>
+        <strong class="metric-value">{{if .HasScheduler}}{{.Scheduler.HighQueue}}{{else}}—{{end}}</strong>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Low queue</span>
+        <strong class="metric-value">{{if .HasScheduler}}{{.Scheduler.LowQueue}}{{else}}—{{end}}</strong>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Running</span>
+        <strong class="metric-value">{{if .HasScheduler}}{{.Scheduler.Inflight}}{{else}}—{{end}}</strong>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Full sync</span>
+        {{if not .HasFullSync}}
+        <strong class="metric-value">—</strong>
+        {{else if .FullSync.Running}}
+        <strong class="metric-value">RUN</strong>
+        {{else if .FullSync.Queued}}
+        <strong class="metric-value state-warn">QUEUED</strong>
+        {{else if .FullSync.FinishedAt.IsZero}}
+        <strong class="metric-value state-warn">IDLE</strong>
+        {{else if .FullSync.Failed}}
+        <strong class="metric-value state-bad">FAIL</strong>
+        {{else}}
+        <strong class="metric-value state-good">OK</strong>
+        {{end}}
+      </div>
+    </section>
+
+    <div class="section-grid">
+      <section class="panel">
+        <div class="panel-header">
+          <span class="eyebrow">Discovery</span>
+          <h2>Full synchronization</h2>
+        </div>
+        <div class="panel-body">
+          {{if .HasFullSync}}
+          <dl>
+            <dt>Last result</dt>
+            {{if .FullSync.Running}}
+            <dd>running</dd>
+            {{else if .FullSync.Queued}}
+            <dd class="state-warn">queued</dd>
+            {{else if .FullSync.FinishedAt.IsZero}}
+            <dd class="state-warn">not run</dd>
+            {{else if .FullSync.Failed}}
+            <dd class="state-bad">failed</dd>
+            {{else}}
+            <dd class="state-good">success</dd>
+            {{end}}
+            <dt>Last started</dt>
+            <dd>{{if .FullSync.StartedAt.IsZero}}—{{else}}{{.FullSync.StartedAt.Format "2006-01-02 15:04:05 MST"}}{{end}}</dd>
+            <dt>Last finished</dt>
+            <dd>{{if .FullSync.FinishedAt.IsZero}}—{{else}}{{.FullSync.FinishedAt.Format "2006-01-02 15:04:05 MST"}}{{end}}</dd>
+            <dt>Next run</dt>
+            <dd>{{if .FullSync.NextAt.IsZero}}disabled{{else}}{{.FullSync.NextAt.Format "2006-01-02 15:04:05 MST"}}{{end}}</dd>
+            <dt>GitLab projects</dt><dd>{{.FullSync.ProjectsFound}}</dd>
+            <dt>SonarQube projects</dt><dd>{{.FullSync.SonarProjects}}</dd>
+          </dl>
+          {{else}}<p class="subtle">Full-sync status unavailable.</p>{{end}}
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <span class="eyebrow">Recent history</span>
+          <h2>Reconciliation totals</h2>
+        </div>
+        <div class="panel-body">
+          <p class="subtle">Across {{.RunTotal}} retained runs.</p>
+          <dl>
+            <dt>Success</dt><dd class="{{if .Totals.Success}}state-good{{end}}">{{.Totals.Success}}</dd>
+            <dt>Partial</dt><dd class="{{if .Totals.Partial}}state-warn{{end}}">{{.Totals.Partial}}</dd>
+            <dt>Failed</dt><dd class="{{if .Totals.Failed}}state-bad{{end}}">{{.Totals.Failed}}</dd>
+            <dt>Skipped</dt><dd class="{{if .Totals.Skipped}}state-warn{{end}}">{{.Totals.Skipped}}</dd>
+            <dt>Permission grants</dt><dd>{{.Totals.Grants}}</dd>
+            <dt>Permission revocations</dt><dd>{{.Totals.Revokes}}</dd>
+          </dl>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel space-bottom" id="runs">
+      <div class="panel-header">
+        <span class="eyebrow">Recent activity</span>
+        <h2>Latest reconciliation runs</h2>
+      </div>
+      {{if .Runs}}
+      <div class="run-history-meta">
+        Showing {{.RunFirst}}-{{.RunLast}} of {{.RunTotal}} retained runs
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Finished</th><th>Source</th><th>Project</th><th>Result</th>
+              <th>Targets</th><th>Grants</th><th>Revokes</th>
+            </tr>
+          </thead>
+          <tbody>
+          {{range .Runs}}
+            <tr>
+              <td>{{.FinishedAt.Format "2006-01-02 15:04:05 MST"}}</td>
+              <td>{{.Source}}</td>
+              <td>{{if .GitLabProject}}{{.GitLabProject}}{{else}}{{.GitLabProjectID}}{{end}}</td>
+              <td class="result-{{.Result}}">{{.Result}}</td>
+              <td>{{.Counts.Targets}}</td>
+              <td>{{.Counts.Grants}}</td>
+              <td>{{.Counts.Revokes}}</td>
+            </tr>
+          {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{if gt .RunPages 1}}
+      <nav class="pagination" aria-label="Run history pages">
+        {{if .HasPreviousRunPage}}
+        <a href="{{publicPath "/stats"}}?page={{.PreviousRunPage}}#runs" rel="prev">Newer</a>
+        {{end}}
+        <span>Page {{.RunPage}} of {{.RunPages}}</span>
+        {{if .HasNextRunPage}}
+        <a href="{{publicPath "/stats"}}?page={{.NextRunPage}}#runs" rel="next">Older</a>
+        {{end}}
+      </nav>
+      {{end}}
+      {{else}}<div class="panel-body subtle">No completed runs.</div>{{end}}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <span class="eyebrow">Dependencies</span>
+        <h2>Upstream state</h2>
+      </div>
+      <div class="panel-body">
+        {{if .Upstreams}}
+        <dl>
+        {{range $name, $status := .Upstreams}}
+          <dt>{{$name}}</dt>
+          <dd>
+            <span class="{{if eq $status.State "ok"}}state-good{{else if eq $status.State "error"}}state-bad{{else}}state-warn{{end}}">
+              {{$status.State}}
+            </span>
+            {{if not $status.LastSuccessAt.IsZero}} · last success {{$status.LastSuccessAt.Format "2006-01-02 15:04:05 MST"}}{{end}}
+            {{if not $status.LastErrorAt.IsZero}} · last error {{$status.LastErrorAt.Format "2006-01-02 15:04:05 MST"}}{{end}}
+          </dd>
+        {{end}}
+        </dl>
+        {{else}}<p class="subtle">No upstream requests recorded.</p>{{end}}
+      </div>
+    </section>
+  </main>
+
+  <footer class="shell footer">
+    GUASSP · GitLab User Access Synchronization for SonarQube Projects ·
+    <a href="{{publicPath "/api/v1/status"}}">status API</a> ·
+    <a href="{{publicPath "/metrics"}}">metrics</a>
+  </footer>
+</body>
+</html>
+{{end}}

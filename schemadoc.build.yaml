@@ -1,0 +1,23 @@
+schema: internal/config/generated/guassp.schema.json
+
+mod2schema:
+  module: .
+  package: github.com/woozymasta/guassp/internal/config
+  type: Config
+  comments: plain
+
+mod2doc:
+  comments: raw
+  template: table
+  title: Guassp configuration
+  description: Generated configuration reference.
+  mode: required
+  format: yaml
+  source_path: internal/config/generated/guassp.schema.json
+  source_raw_path: https://raw.githubusercontent.com/woozymasta/guassp/HEAD/internal/config/generated/guassp.schema.json
+  output: CONFIG.md
+
+mod2yaml:
+  comments: raw
+  mode: all
+  output: internal/config/generated/guassp.example.yaml

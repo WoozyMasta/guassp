@@ -1,324 +1,304 @@
-<!-- omit in toc -->
-# Guassp - GitLab User Access Synchronizer for SonarQube Projects
+# GUASSP
 
-The project is intended to create a multi-user integration of [SonarQube][] and
-[GitLab][]. Project visibility and user permissions will be set in SonarQube
-in the same way as project permissions in GitLab.
+**GUASSP** stands for
+**G**itLab **U**ser **A**ccess **S**ynchronization
+for **S**onarQube **P**rojects.
+It reconciles access to SonarQube projects
+from GitLab project membership and visibility.
 
-> This document is available in languages: [eng 🇬🇧][], [ua 🇺🇦][], [rus 🇷🇺][]
+![GitLab access levels mapped to SonarQube permissions][permissions scheme]
 
-* [Implementation](#implementation)
-* [Requirements](#requirements)
-* [Components](#components)
-* [Container image](#container-image)
-* [Quick start](#quick-start)
-* [Configuration](#configuration)
-* [API](#api)
-* [Pipeline](#pipeline)
-* [Metrics](#metrics)
-* [Building and Debugging](#building-and-debugging)
+## Start
 
-## Implementation
+1. Copy the [example configuration][config example] to `guassp.yaml`.
+2. Set the GitLab and SonarQube URLs and service tokens.
+3. Run `go run ./cmd/guassp` or build with `go build ./cmd/guassp`.
 
-This utility consists of a front-end API that accepts requests to update
-permissions from the GitLab CI pipeline, where all trust is [built around][jt]
-`CI_JOB_TOKEN`, trusted tasks are added to the RQ job queue (Redis Queue).
-Jobs are processed by the backend workers, and a separate prometheus metrics
-exporter is used to display statistics.
+With no arguments, GUASSP reads `./guassp.yaml`;
+it fails if the file is missing.
+Pass a config path explicitly to create an example
+at that path when the file is missing or empty.
+Edit the generated file before starting the service.
 
-![scheme][]
+GUASSP loads `.env` from the working directory before reading the config.
+Variables already present in the process environment are kept.
+Do not commit `.env`; it is git-ignored.
 
-Permissions are divided by the access level of SonarQube roles according to
-the interests of group users in GitLab.  
-It takes into account how GitLab implements user access rights in the
-project, and users from invited groups, where access levels are limited
-in accordance with GitLab.
+Configuration can be YAML or JSON.
+See the [configuration reference][config]
+and [Kubernetes deployment notes][kustomize].
 
-![permissions][]  
-![role-mapping][]
+Environment variables are expanded in configuration values,
+including inside strings; mapping keys are not expanded:
 
-## Requirements
-
-### Necessarily
-
-* SonarQube must have configured [ALM][] integration with your GitLab, and you
-  must specify the name of the integration key in `SONARQUBE_ALM_KEY`;
-* Authentication in SonarQube must occur only through [ALM][] GitLab, otherwise
-  the search for users will be violated, the rights are synchronized only for
-  the explicitly corresponding account that came from GitLab;
-* You must be able to provide an access token with administrative privileges to
-  SonarQube in `SONARQUBE_TOKEN` for the worker to work correctly;
-* You must create a service user in GitLab, which must have at least
-  **developer** access in all projects that you want to analyze in SonarQube,
-  with this user you must log in to SonarQube and give him global rights to
-  perform analysis and create projects. Then you can use that user's token:
-  * User token received in SonarQube as `SONARQUBE_TOKEN` used in CI pipeline to
-    perform analysis and project management.
-  * User token received in GitLab as `GITLAB_TOKEN` for worker, needed to get a
-    list of all members of a group or project, including inherited and invited
-    members
-* The name of the project registered in SonarQube must be equal to
-  `$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME` and the project key is recommended to
-  be set to `gitlab:$CI_PROJECT_ID`. Only with these settings, synchronization
-  will be successful, other states are possible but have not been tested.
-
-### Recommended
-
-* The best experience will be gained by using the
-  [sonarqube-community-branch-plugin][] plugin which adds branch analysis and PR
-  support to your projects. Also here you will need a previously created system
-  user in GitLab with **developer** rights, which will allow you to decorate MR
-  in your projects.
-* For transparent integration, it is best to use the example script
-  [sq-integration-taks] for the GitLab CI pipeline, otherwise other project
-  registration options may not work correctly or even break the work. The
-  example is also tailored for the presence of the
-  [sonarqube-community-branch-plugin][] plugin and the execution of OWASP
-  DependencyCheck
-* Use Prometheus and Grafana metrics to analyze synchronizer performance.
-
-## Components
-
-The project is implemented on [flask][], for WSGI it is used [bjoern][],
-the work with the GitLab API is done through [python-gitlab][], and the
-SonarQube API through [python-sonarqube-api][]. To process the message
-queue, [RQ][rq] is used, whose metrics are returned by [rq-exporter][].
-
-## Container image
-
-You can pull image from registries:
-
-* [`ghcr.io/woozymasta/guassp:latest`][ghcr]
-* [`quay.io/woozymasta/guassp:latest`][quay]
-* [`docker.io/woozymasta/guassp:latest`][dhub]
-
-## Quick start
-
-For a quick start, you can use the example from [docker-compose][]:
-
-1. [docker-compose.env][] - change the settings in the environment file
-2. [docker-compose.yml][] - run with `docker-compose up -d`
-
-## Configuration
-
-To launch the desired utility, transfer to the container or script
-`guassp.sh` argument:
-
-* `worker` _(default)_ - task handler from the queue
-* `api` - API to control tasks
-* `exporter` - Prometheus metric
-* `all-in-one` - Launch `worker`,`api` and `exporter` immediately
-* `api-dev` - Launching API via Flask DEV server
-
-### Application Options
-
-* **`LISTEN_ADDRESS`**=`0.0.0.0` - API listen address
-* **`LISTEN_PORT`**=`5000` - API listen port
-* **`LOG_LEVEL`**=`INFO` - Logging level
-* **`SECRET_KEY`**=`secret` - Secret key
-* **`QUEUE_RESULT_TTL`**=`7200` - Queue result storage time
-* **`MORE_ACCURATE_SYNC`**=`true` - Search users in SonarQube by GitLab
-  email else by username. It call one more API request per user is
-  more accurate but slower x2
-
-### Options for working with GitLab
-
-* **`GITLAB_URL`**=`https://gitlab.com` - GitLab server URL
-* **`GITLAB_TOKEN`** - GitLab access token, must have permissions to view
-  contributors and their permissions for maintained projects
-* **`GITLAB_SKIP_USERS`** - comma-separated list of GitLab user IDs that will
-  be skipped during synchronization
-
-### Options for working with SonarQube
-
-* **`SONARQUBE_URL`** - SonarQube server URL
-* **`SONARQUBE_TOKEN`** - access token to SonarQube with
-  administrative privileges
-* **`SONARQUBE_ALM_KEY`** - [ALM][] key GitLab integration name
-* **`SONARQUBE_SKIP_GROUPS`** - comma-separated list of SonarQube groups that
-  will be skipped during synchronization
-
-### Options for working with Redis
-
-* **`REDIS_URL`**=`redis://localhost:6379/0` - Redis server URL
-
-### Prometheus Metrics Exporter Options
-
-* **`EXPORTER_LISTEN_ADDRESS`**=`0.0.0.0` - Exporter listen address
-* **`EXPORTER_LISTEN_PORT`**=`9726` - Exporter listen port
-
-Also you can pass [RQ][rq] args and environment variables
-
-## API
-
-### Job Registration
-
-> POST **`/task`**
->
-> ```json
-> {"job_token": str}
-> ```
->
-> Headers: `JOB-TOKEN` or `Authorization: Bearer`
-
-You need to pass the task token in any of the options:
-
-```bash
-curl -sL http://127.0.0.1:5000/task \
-  -H "Content-Type: application/json" \
-  -d '{"job_token": "'$CI_JOB_TOKEN'"}' | jq
-
-curl -sL http://127.0.0.1:5000/task -X POST \
-  -H "JOB-TOKEN: $CI_JOB_TOKEN" | jq
-
-curl -sL http://127.0.0.1:5000/task -X POST \
-  -H "Authorization: Bearer $CI_JOB_TOKEN" | jq
+```yaml
+gitlab:
+  token: ${GITLAB_TOKEN:?set GITLAB_TOKEN}
+sonarqube:
+  token: ${SONARQUBE_TOKEN:?set SONARQUBE_TOKEN}
+web:
+  password: ${WEB_PASSWORD:-}
 ```
 
-The task token can be passed in the `JOB-TOKEN` header, or
-`Authorization: Bearer` or be the value of the `job_token` key in JSON
+* `${VAR}` becomes an empty string when unset.
+* `${VAR:-default}` uses a fallback without changing the environment.
+* `${VAR:=default}` uses a fallback and sets the environment variable.
+* `${VAR:?message}` fails config loading when the variable is unset or empty.
+* `$${VAR}` preserves the literal `${VAR}`.
 
-### Tasks Queue
+In JSON, quote expressions containing `:`, for example
+`"${GITLAB_TOKEN:?set GITLAB_TOKEN}"`.
 
-> GET **`/tasks`**
+## Synchronization
 
-```bash
-curl -sL http://127.0.0.1:5000/tasks | jq
-curl -sL http://127.0.0.1:5000/tasks | jq -er '.tasks | keys'
+Configure GitLab as an ALM integration in SonarQube
+and bind each SonarQube project to its GitLab project.
+GUASSP uses the binding's GitLab project ID;
+one GitLab project can be bound to multiple SonarQube projects.
+Set `sonarqube.alm_key` when bound projects
+use multiple GitLab ALM setting keys.
+Without it, discovery fails if it finds bindings from more than one setting.
+
+The CI sync endpoint validates the GitLab job token
+and uses its job record to identify the source project.
+A manual request resolves a GitLab project ID, full namespace path,
+or canonical URL on the configured GitLab host.
+GUASSP then reads that project's effective membership, matches members
+to SonarQube accounts, and reconciles each bound SonarQube project.
+The request only queues the work;
+the caller does not wait for reconciliation to finish.
+
+For each eligible matched user, GUASSP changes only direct SonarQube project
+permissions named in the active `permissions` map.
+SonarQube group grants and permission types outside that map are left alone.
+GitLab group membership is included through the user's effective project role;
+GUASSP does not change GitLab membership
+or synchronize SonarQube group permissions.
+Changing a mapped role adjusts managed direct grants;
+removing a user from effective membership removes those grants.
+Unmatched and ambiguous identities are left untouched.
+
+By default, `discovery.full_sync_at` is `03:00` local service time.
+GUASSP checks upstream access at startup, then discovers all GitLab-bound
+SonarQube projects and queues their GitLab projects only at the configured time.
+Set it to an empty string to disable scheduled discovery;
+the first CI or manual request then loads the binding index on demand.
+Startup never triggers a full discovery cycle.
+Missed schedule times are not replayed after downtime.
+Set `discovery.manual_full_sync: true` to expose `POST /api/v1/full-sync`
+and the full-sync button in the web console.
+`/readyz` remains unavailable until startup preflight passes.
+Failed preflight is retried every 30 seconds.
+Preflight checks GitLab token identity
+and one membership-filtered project-list request,
+then SonarQube project search and read access to one result when available.
+It does not test every GitLab member list,
+SonarQube binding, or permission write.
+CI and manual sync requests are rejected until preflight passes.
+
+`runtime.workers` sets the number of concurrent project reconciliations.
+`runtime.run_history` sets how many completed runs are kept in memory; it
+defaults to 256 and accepts values from 1 to 4096. The queue, binding index,
+run history, rate-limit state, and metrics are in memory and are lost when the
+process stops.
+
+## GitLab CI
+
+Run the scan against the SonarQube project already bound
+to the current GitLab project.
+Set `SONAR_PROJECT_KEY`, `SONARQUBE_URL`, `SONARQUBE_ANALYSIS_TOKEN`,
+and `GUASSP_URL` as CI/CD variables.
+If GUASSP has `api.token` configured, also set `GUASSP_API_TOKEN`.
+Mask secret variables and protect them when the job runs only on protected refs.
+The scanner image must provide `sonar-scanner` and `curl`.
+This example assumes `api.token` is set.
+
+```yaml
+sonarqube:
+  stage: test
+  variables:
+    SONAR_HOST_URL: "$SONARQUBE_URL"
+    SONAR_TOKEN: "$SONARQUBE_ANALYSIS_TOKEN"
+  script:
+    - sonar-scanner -Dsonar.projectKey="$SONAR_PROJECT_KEY"
+    - >-
+      curl --fail --silent --show-error --request POST
+      --header "Authorization: Bearer $GUASSP_API_TOKEN"
+      --header "JOB-TOKEN: $CI_JOB_TOKEN"
+      "$GUASSP_URL/api/v1/sync"
 ```
 
-### Task Status
+With `api.token`, `Authorization` carries the GUASSP API token
+and `JOB-TOKEN` carries `CI_JOB_TOKEN`.
+Without `api.token`, omit `JOB-TOKEN`
+and send the job token as `Authorization: Bearer $CI_JOB_TOKEN`.
+GitLab validates the job token before GUASSP queues the project.
 
-> GET **`/task/<uuid:job_uuid>`**
+The scanner token and `sonarqube.token` are different credentials.
+Use a SonarQube project analysis token for scanning;
+GUASSP uses its own SonarQube user token for management API calls.
 
-```bash
-curl -sL http://127.0.0.1:5000/task/8b155172-cfcf-4777-b9f4-bfce53b6eb0e | jq
-```
+## Service credentials
 
-### Removing a task from the queue
+* **GitLab:**
+  Create `gitlab.token` with the `read_api` scope.
+  The scope allows read-only API requests;
+  the token account must also be able to read every GitLab project
+  bound to an in-scope SonarQube project and its effective member list;
+  `read_api` alone does not grant project access.
+  GitLab's [`members/all` endpoint][gitlab member API] returns memberships
+  visible to that account, including inherited project roles.
+  The returned `access_level` is each user's effective role on that project;
+  GUASSP does not enumerate unrelated group memberships.
+  A group access token is suitable only if its scope covers all bound projects;
+  use a service-account PAT for projects across unrelated groups.
+  A project access token covers one project,
+  and deploy tokens cannot authenticate to the REST API.
+  GUASSP needs no GitLab write scope.
+* **SonarQube:** `sonarqube.token` must be a user token
+  with global `Administer System` permission for the current project discovery
+  and user directory API calls. This grants full control of the instance.
+  Use a dedicated account and keep this token in a secret store.
+  Project and global analysis tokens are for scanning,
+  not GUASSP's management calls.
 
-> DELETE **`/task/<uuid:job_uuid>`**
+See GitLab's [token types][gitlab tokens],
+[token scopes][token scopes], and [CI job tokens][job tokens],
+and SonarQube's [token types][sonar tokens]
+and [permissions][sonar permissions].
 
-```bash
-curl -sL http://127.0.0.1:5000/task/8b155172-cfcf-4777-b9f4-bfce53b6eb0e \
-  -X DELETE | jq
-```
+## Policies
 
-### Manual task registration by GitLab project ID
+### User matching and exclusions
 
-> POST **`/task_manual/<int:prj_id>`**
+All match modes require a SonarQube account linked to GitLab:
+its external provider must be `gitlab` and its external identity
+must equal the GitLab username or numeric user ID.
+`users.match: external` uses that link alone;
+`email` and `name` additionally require the corresponding email
+or display name to match.
+They do not match unrelated SonarQube accounts by email or name.
+Email matching makes an additional GitLab user API request
+and depends on the email GitLab exposes to the service account.
+A user is not synchronized when the match is missing or ambiguous.
 
-```bash
-curl -sL http://127.0.0.1:5000/task_manual/111 \
-  -X POST | jq
-```
+`gitlab.skip_users` excludes listed GitLab user IDs
+from direct permission changes.
+`sonarqube.skip_groups` excludes members of the listed SonarQube groups.
+Excluded, unmatched, ambiguous,
+and unknown-state users are protected from permission revocation.
+A matched user with a recognized inactive GitLab state
+receives no desired project permissions,
+so GUASSP removes that user's managed direct permissions.
 
-### Health
+`users.deactivation` is disabled by default.
+When enabled, GUASSP also deactivates the matched SonarQube account globally
+when GitLab reports `blocked`, `banned`, `deactivated`,
+`ldap_blocked`, or `blocked_pending_approval`.
+This affects the account across SonarQube projects
+and can revoke its tokens; it is not a project-only access change.
+See SonarQube's [deactivation behavior][sonar deactivation].
+Unknown GitLab states do not trigger deactivation.
 
-> GET **`/health`**
+### Project permissions
 
-API health, application availability and job queues.
+With no custom map, GitLab access levels map cumulatively:
 
-## Pipeline
+* `10` Guest: `user`
+* `20` Reporter: `user`, `codeviewer`
+* `30` Developer: previous permissions plus `issueadmin`
+* `40` Maintainer: previous permissions plus `securityhotspotadmin`
+* `50` Owner: previous permissions plus `admin`
 
-In the GitLab CI pipeline, first of all, you must make sure that the [ALM][]
-setup is done and refers to your project, after which you can submit
-a task for synchronization in guassp. Now you can start the analysis.
+The map uses exact numeric GitLab access levels.
+A custom `permissions` map replaces the defaults.
+For an unmapped level, GUASSP leaves the user's current permissions unchanged.
+An empty list means no permissions from the managed set.
+Every permission named anywhere in the active map belongs to that managed set
+and may be granted or revoked;
+permission names absent from the map are never changed.
+Use permission names supported by your SonarQube edition.
 
-For publish Guassp API behind Nginx as part of SonarQube API check
-[Nginx config example][]
+### Visibility and discovery
 
-```bash
-: "${SONARQUBE_PROJECT_KEY:=gitlab:$CI_PROJECT_ID}"
+By default, GitLab `public` maps to SonarQube `public`;
+`internal` and `private` map to `private`.
+A custom `visibility.map` replaces these defaults
+and must include every source visibility that can occur.
+Set `visibility.enabled: false` to leave SonarQube visibility unchanged.
 
-curl --location --fail --user "$SONARQUBE_TOKEN:" \
-  "$SONARQUBE_URL/api/alm_settings/set_gitlab_binding" \
-  -d "almSetting=$SONARQUBE_ALM_NAME" \
-  -d "project=$SONARQUBE_PROJECT_KEY" \
-  -d "repository=$CI_PROJECT_ID"
+ALM bindings are the normal project lookup.
+Enable `discovery.path_fallback` only when a binding is unavailable.
+It selects a SonarQube project only when exactly one unbound project's name
+equals the full GitLab namespace path; otherwise it skips the target.
 
-curl --location --fail -X POST -H "JOB-TOKEN: $CI_JOB_TOKEN" \
-  "$SONARQUBE_URL/api/guassp/task"
-```
+## HTTP endpoints
 
-You can see a more voluminous example of a script for executing SonarQube
-in the pipeline in the [`sq-integration-taks.sh`][sq-integration-taks] file
+* `POST /api/v1/sync`
+  asks GitLab to validate the job token, then queues its project.
+* `POST /api/v1/projects/sync`
+  accepts `{"project":"group/project"}` and queues a manually selected project.
+  It is available when `web.enabled` is true.
+* `POST /api/v1/full-sync`
+  refreshes project bindings and queues every discovered project.
+  It is available only when `discovery.manual_full_sync` is true.
+* `GET /api/v1/status`
+  returns service, scheduler, discovery, and upstream status.
+* `GET /api/v1/runs?limit=N`
+  returns recent reconciliation results
+  (default 50; retention is controlled by `runtime.run_history`).
+* `GET /`
+  serves the manual form, `POST /` submits it, and `GET /stats`
+  serves status pages with 25 runs per page; these routes require `web.enabled`.
+* `GET /healthz`
+  reports process liveness without probing upstreams.
+* `GET /readyz`
+  reports whether startup preflight passed.
+* `GET /metrics`
+  serves Prometheus metrics when `metrics.enabled` is true.
 
-## Metrics
+Set `web.base_path: /guassp` when the service is published below a URL path.
+Page links, form submissions, and displayed endpoint URLs use this prefix,
+and the service accepts both prefixed and root paths.
+A reverse proxy can preserve the prefix or strip it before forwarding requests.
 
-Metrics implemented using project [rq-exporter][]
+When set, `api.token` requires `Authorization: Bearer <token>`
+on every JSON API endpoint, including status and run history.
+CI sync still needs its job token in `JOB-TOKEN`.
+Without `api.token`, status and run history are public;
+CI sync still validates the GitLab job token.
+Set both `web.username` and `web.password`
+to protect the browser interface and form-based sync.
+When `api.token` is unset, those credentials also protect manual JSON sync.
+Set both web credentials or neither.
+`web.sync_rate` limits manual sync requests by the remote IP seen by GUASSP;
+behind a proxy, that may be the proxy's IP.
 
-Dashboard ID `12196` is suitable for visualization in Grafana or use it
-[adaptation][dashboard] which will output only metrics from guassp.
+Metrics are enabled and unauthenticated by default.
+Protect `/metrics` with either `metrics.token` (Bearer)
+or both `metrics.username` and `metrics.password` (Basic);
+do not configure both methods.
+Set `metrics.include_runtime: true` to include Go runtime and process metrics.
+These credentials are separate from the web and API credentials.
+The HTTP listener does not provide TLS;
+terminate TLS at a trusted proxy
+or ingress before exposing it outside a private network.
 
-## Building and Debugging
+Disabling `web.enabled` removes the pages and manual sync routes but leaves
+CI sync, status, run history, health checks, and enabled metrics available.
+`compat.job_token_body: true` additionally accepts a JSON `job_token`
+for CI sync; leave it disabled when the client can send a request header.
 
-A set of commands for fast local debugging in container
+<!-- links -->
 
-```bash
-# Build
-podman build -t guassp .
-
-# Redis
-podman run --rm -d -p 6379:6379 --name redis redis
-# API
-podman run --rm -d -p 5000:5000 --env-file .env --name guassp-api localhost/guassp:latest api
-# Workers
-podman run --rm -d --env-file .env --name guassp-worker-1 localhost/guassp:latest worker
-podman run --rm -d --env-file .env --name guassp-worker-2 localhost/guassp:latest worker
-# Exporter
-podman run --rm -d -p 9726:9726 --env-file .env --name guassp-exporter localhost/guassp:latest exporter
-
-# Check
-curl 0.0.0.0:9726 -s | grep -v '^#'
-curl 0.0.0.0:5000/tasks -s | jq
-curl 0.0.0.0:5000/task -s -X POST -H "JOB-TOKEN: $CI_JOB_TOKEN" | jq
-```
-
-Or run locally, for this you need to install dependencies
-
-```bash
-apt-get install -y libev-dev libevdev2
-python -m venv .venv
-./.venv/bin/activate
-pip install requirements.txt
-```
-
-And for simplicity, run through a script `guassp`
-
-```bash
-./guassp.sh api
-./guassp.sh worker
-./guassp.sh exporter
-```
-
-<!-- Links files -->
-[eng 🇬🇧]: README.md
-[ua 🇺🇦]: extra/README-ua.md
-[rus 🇷🇺]: extra/README-ru.md
-[scheme]: extra/scheme.drawio.png
-[permissions]: extra/permissions.drawio.png
-[role-mapping]: extra/role-mapping.png
-[dashboard]: extra/grafana-dashboard.json
-[docker-compose.env]: extra/docker-compose.env
-[docker-compose.yml]: extra/docker-compose.yml
-[Nginx config example]: extra/nginx.conf
-[sq-integration-taks]: extra/sq-integration-taks.sh
-
-<!-- Links web -->
-[GitLab]: https://about.gitlab.com
-[SonarQube]: https://www.sonarqube.org
-[jt]: https://docs.gitlab.com/ee/api/jobs.html#get-job-tokens-job
-[flask]: https://github.com/pallets/flask
-[bjoern]: https://github.com/jonashaag/bjoern
-[python-gitlab]: https://github.com/python-gitlab/python-gitlab
-[python-sonarqube-api]: https://github.com/shijl0925/python-sonarqube-api
-[rq]: https://github.com/rq/rq
-[rq-exporter]: https://github.com/mdawar/rq-exporter
-[docker-compose]: https://docs.docker.com/compose/
-[sonarqube-community-branch-plugin]: https://github.com/mc1arke/sonarqube-community-branch-plugin
-
-<!-- Containers -->
-[quay]: https://quay.io/repository/woozymasta/guassp
-[dhub]: https://hub.docker.com/r/woozymasta/guassp
-[ghcr]: https://github.com/WoozyMasta/guassp/pkgs/container/guassp
+[permissions scheme]: ./permissions.drawio.png
+[config example]: ./internal/config/generated/guassp.example.yaml
+[config]: ./CONFIG.md
+[kustomize]: ./deploy/kustomize/README.md
+[gitlab tokens]: https://docs.gitlab.com/security/tokens/
+[token scopes]: https://docs.gitlab.com/security/tokens/access_token_scopes/
+[job tokens]: https://docs.gitlab.com/ci/jobs/ci_job_token/
+[gitlab member API]: https://docs.gitlab.com/api/project_members/#list-all-members-of-a-project
+[sonar tokens]: https://docs.sonarsource.com/sonarqube-server/user-guide/managing-tokens
+[sonar permissions]: https://docs.sonarsource.com/sonarqube-server/instance-administration/user-management/user-permissions
+[sonar deactivation]: https://docs.sonarsource.com/sonarqube-server/instance-administration/user-management/deactivating-users

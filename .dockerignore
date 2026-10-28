@@ -1,18 +1,7 @@
-.vscode/
-.git/
-extra/
+.github
+build
+deploy
+*.pprof
+*.png
 .env
-.env.example
-.gitignore
-.markdownlint.yaml
-.pylintrc
-CHANGELOG.md
-CNAME
-README.md
-
-
-# Python
-.venv/
-__pycache__/
-*.py[cod]
-*$py.class
+.env.*

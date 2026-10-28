@@ -1,0 +1,210 @@
+# Runtime controls the HTTP listener and the number of projects reconciled concurrently.
+runtime:
+  # Listen is the local address where Guassp accepts HTTP connections for its API,
+  # health probes, optional metrics, and enabled web interface.
+  #
+  # Default: :8080
+  listen: :8080
+  # Workers controls how many project synchronizations can run at the same time.
+  # Increase it when the service needs to process a large queue faster;
+  # keep it modest to limit concurrent load on GitLab and SonarQube.
+  #
+  # Default: 4
+  workers: 4
+  # RunHistory sets how many completed project synchronizations remain available in memory.
+  # Increase it to keep more recent runs on the status page and run-history API.
+  #
+  # Default: 256
+  run_history: 256
+# GitLab contains the source server address and credentials
+# used to discover projects, memberships, and user information.
+gitlab:
+  # URL is the address of the GitLab instance.
+  # Include any path prefix used by a self-managed installation so API requests reach the correct instance.
+  #
+  # Example: https://gitlab.example.com
+  url: https://gitlab.example.com
+  # Token authenticates Guassp's GitLab API requests.
+  # Use the read_api scope and grant its account access to every bound project and its effective member list.
+  # The scope permits API reads; account access determines which projects and memberships are visible.
+  # This service credential is separate from CI job tokens used for individual sync requests.
+  #
+  # Example: ${GITLAB_TOKEN:?set GITLAB_TOKEN}
+  token: ${GITLAB_TOKEN:?set GITLAB_TOKEN}
+  # SkipUsers lists GitLab user IDs whose access Guassp must not manage.
+  # Use this to preserve manually maintained SonarQube access for selected accounts.
+  skip_users:
+    - 1
+# SonarQube contains the destination server address and credentials used for API requests.
+# ALM and group settings further narrow which bindings or users are managed.
+sonarqube:
+  # URL is the address of the SonarQube instance.
+  # Include its context path when the server is hosted below a URL prefix.
+  #
+  # Example: https://sonar.example.com
+  url: https://sonar.example.com
+  # Token authenticates Guassp's SonarQube Web API requests and must be a user token.
+  # Current project discovery and user directory API calls require global Administer System permission.
+  # User deactivation also requires this permission and affects the entire SonarQube instance.
+  #
+  # Example: ${SONARQUBE_TOKEN:?set SONARQUBE_TOKEN}
+  token: ${SONARQUBE_TOKEN:?set SONARQUBE_TOKEN}
+  # ALMKey selects the GitLab ALM configuration whose project bindings Guassp should use
+  # when SonarQube has more than one GitLab configuration.
+  # Leave it empty to use the available binding without an additional ALM filter.
+  #
+  # Example: gitlab
+  alm_key: gitlab
+  # SkipGroups names SonarQube groups whose members Guassp should leave untouched.
+  # A user in any listed group is excluded from direct permission reconciliation,
+  # which helps preserve access managed through local or privileged groups.
+  skip_groups:
+    - <string>
+# API controls authentication for the JSON API endpoints.
+# Configure a token to reject unauthenticated API requests before they can trigger upstream calls.
+api:
+  # Token requires this bearer token on every /api/* request.
+  # On CI synchronization, also send the GitLab job token in the JOB-TOKEN header.
+  # Leave it empty to keep the API token check disabled.
+  #
+  # Example: ${GUASSP_API_TOKEN:-}
+  token: ${GUASSP_API_TOKEN:-}
+# Web controls the browser pages and form-based manual project synchronization.
+# It can also protect these interactive operations with HTTP Basic authentication.
+web:
+  # Enabled serves the rendered pages and enables the manual synchronization interface.
+  # Disabling it removes those interactive features while leaving the service API and operational endpoints available.
+  #
+  # Default: true
+  enabled: true
+  # BasePath is the public URL path prefix used when GUASSP is published below a reverse-proxy path.
+  # The service accepts requests both with and without this prefix; leave it empty when served at the host root.
+  #
+  # Default: ""
+  base_path: ""
+  # Username is the account name for HTTP Basic authentication
+  # on the browser interface and form-based manual synchronization.
+  # Set it together with Password to protect those operations.
+  #
+  # Example: operator
+  username: operator
+  # Password is the credential paired with Username for HTTP Basic authentication.
+  # Keep it in a secret store or environment-specific configuration rather than a checked-in example file.
+  #
+  # Example: ${WEB_PASSWORD:?set WEB_PASSWORD}
+  password: ${WEB_PASSWORD:?set WEB_PASSWORD}
+  # SyncRate limits how frequently a client can request a manual project sync.
+  # Use it to prevent accidental or abusive repeated requests to the upstream services;
+  # set it to zero when another layer already provides the required request control.
+  #
+  # Default: 10/m
+  sync_rate: 10/m
+# Metrics controls whether Prometheus metrics are served and how that endpoint is protected.
+metrics:
+  # Enabled serves the Prometheus metrics endpoint at /metrics.
+  # Disable it when metrics are collected through another path or should not be exposed.
+  #
+  # Default: true
+  enabled: true
+  # IncludeRuntime adds Go runtime and operating-system process metrics to /metrics.
+  # Enable it for runtime diagnostics such as goroutine count, memory use, and process CPU time.
+  include_runtime: false
+  # Token requires this bearer token when a client requests /metrics.
+  # Leave it empty to disable token authentication; do not combine it with Basic credentials.
+  #
+  # Example: ${METRICS_TOKEN:-}
+  token: ${METRICS_TOKEN:-}
+  # Username enables HTTP Basic authentication for /metrics when paired with Password.
+  # Do not combine Basic credentials with Token.
+  #
+  # Example: ${METRICS_USERNAME:-}
+  username: ${METRICS_USERNAME:-}
+  # Password is the HTTP Basic password paired with Username.
+  #
+  # Example: ${METRICS_PASSWORD:-}
+  password: ${METRICS_PASSWORD:-}
+# Permissions defines which SonarQube project permissions Guassp manages for each GitLab project access level.
+# Use it to adapt GitLab roles to the permissions enabled in SonarQube.
+# If omitted, Guassp uses its built-in role mapping.
+# Providing a mapping replaces that policy; a level with an empty list has no managed permissions.
+permissions:
+  example:
+    - <string>
+# Visibility controls whether SonarQube project visibility follows the corresponding GitLab project.
+# This is useful when public and private projects must retain the same exposure after synchronization.
+# Set enabled to false to leave SonarQube visibility unchanged,
+# or provide a map to choose how each GitLab visibility is represented.
+visibility:
+  # Enabled turns visibility reconciliation on or off.
+  # When disabled, Guassp does not change the existing SonarQube project visibility.
+  #
+  # Default: true
+  enabled: true
+  # Map translates GitLab public, internal, and private visibility into SonarQube public or private visibility.
+  # A custom map replaces the built-in mapping, so include each GitLab visibility that can occur.
+  # If omitted, the built-in mapping is used.
+  map:
+    example: <string>
+# Discovery controls how a GitLab project is associated with a SonarQube project
+# and when Guassp refreshes its view of all GitLab-bound projects.
+discovery:
+  # FullSyncAt schedules a daily refresh of GitLab-bound SonarQube projects at local service time.
+  # Leave it empty to turn off scheduled full discovery cycles.
+  #
+  # Default: 03:00
+  full_sync_at: 03:00
+  # ManualFullSync enables POST /api/v1/full-sync and its button in the web console.
+  # The API uses api.token and the button follows the web Basic authentication settings.
+  # Leave it disabled when users must not trigger a full sync.
+  manual_full_sync: false
+  # PathFallback lets Guassp look for a SonarQube project
+  # with the same full GitLab path when no usable ALM binding identifies one.
+  # It is intended for installations where project bindings are missing; ambiguous matches are not selected.
+  path_fallback: false
+# Users controls how GitLab members are matched to SonarQube users and whether accounts
+# known to be inactive in GitLab are deactivated in SonarQube.
+users:
+  # Match selects the identity used to find a SonarQube account for each GitLab member.
+  # The external mode is intended for accounts linked to GitLab in SonarQube.
+  # Choose email or name when your SonarQube accounts are identified by those attributes.
+  #
+  # Default: external
+  # Allowed values: external, email, name
+  match: external
+  # Deactivation allows Guassp to deactivate a matched SonarQube account
+  # when GitLab reports the corresponding user in a known inactive state.
+  # This applies to the account itself, rather than removing access only from the current project.
+  deactivation: false
+# Log controls the format, destination, and detail level of process logs.
+# Use debug or trace temporarily when investigating synchronization decisions or API behavior.
+log:
+  # Format selects structured JSON for log processing or readable text for interactive terminal use.
+  #
+  # Default: json
+  # Allowed values: json, text
+  format: json
+  # Level sets the least severe events to emit.
+  # Use debug or trace while investigating behavior, then return to a quieter level for routine operation.
+  #
+  # Default: info
+  # Allowed values: trace, debug, info, warn, error, disabled
+  level: info
+  # Output sends logs to stderr, stdout, or the named file.
+  # File output is useful when the runtime does not collect process streams directly.
+  #
+  # Default: stderr
+  output: stderr
+  # TimestampFormat controls how each log entry records its time.
+  # Choose a format that matches the log collector or omit timestamps when the runtime adds them.
+  #
+  # Default: rfc3339
+  # Allowed values: rfc3339, unix, unixms, none
+  timestamp: rfc3339
+  # FileTruncate clears the selected log file on startup instead of preserving earlier entries and appending new ones.
+  truncate: false
+# Compat enables the alternate request format supported for CI synchronization.
+# Leave this section unset when clients send the job token in the request header.
+compat:
+  # JobTokenBody allows the CI synchronization endpoint to read a job token from the JSON request body.
+  # Enable it when a client cannot send the token in the request header.
+  job_token_body: false
