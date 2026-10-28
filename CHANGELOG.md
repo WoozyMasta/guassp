@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][],
 and this project adheres to [Semantic Versioning][].
 
-## Unreleased
+## [0.3.0][] - 2026-10-28
 
 ### Changed
 
@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning][].
 * Added a configurable HTTP path prefix and run-history retention,
   plus Kustomize resources for deployment.
 
+[0.3.0]: https://github.com/WoozyMasta/guassp/compare/0.2.0...v0.3.0
+
 ## [0.2.0][] - 2022-05-22
 
 ### Added
@@ -46,7 +48,7 @@ and this project adheres to [Semantic Versioning][].
 * Update project preparation script example `extra/sq-integration-taks.sh`,
   updated logic for searching and creating a project
 
-[0.2.0]: https://github.com/WoozyMasta/guassp/guassp/0.2.0...0.1.1
+[0.2.0]: https://github.com/WoozyMasta/guassp/compare/0.1.1...0.2.0
 
 ## [0.1.1][] - 2022-05-06
 
@@ -57,7 +59,7 @@ and this project adheres to [Semantic Versioning][].
 * nginx config example;
 * improve documentation.
 
-[0.1.1]: https://github.com/WoozyMasta/guassp/compare/0.1.0...v0.1.1
+[0.1.1]: https://github.com/WoozyMasta/guassp/compare/0.1.0...0.1.1
 
 ## [0.1.0][] - 2022-05-06
 
