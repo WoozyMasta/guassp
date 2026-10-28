@@ -362,12 +362,11 @@ func (fullSync *FullSync) runCycle(ctx context.Context, trigger string) bool {
 	startedAt := fullSync.now()
 	fullSync.status = FullSyncStatus{Running: true, StartedAt: startedAt}
 	fullSync.mu.Unlock()
-	if event := fullSync.logger.Trace(); event.Enabled() {
-		event.Str("operation", "refresh project bindings").
-			Str("trigger", trigger).
-			Time("started_at", startedAt).
-			Msg("discovery cycle started")
-	}
+	fullSync.logger.Info().
+		Str("operation", "refresh project bindings").
+		Str("trigger", trigger).
+		Time("started_at", startedAt).
+		Msg("discovery cycle started")
 
 	status := FullSyncStatus{StartedAt: startedAt}
 	snapshot, err := fullSync.discovery.Refresh(ctx)

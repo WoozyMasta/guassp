@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning][].
 
 * Support selecting the configuration file with `GUASSP_CONFIG_PATH`.
 * Link projects in recent activity to their GitLab and SonarQube pages.
+* Log sync requests and full-sync cycle starts at info level.
 
 ## [0.3.0][] - 2026-10-28
 

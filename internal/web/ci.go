@@ -70,15 +70,15 @@ func (server *Server) sync(writer http.ResponseWriter, request *http.Request) {
 		Status:    "queued",
 		Coalesced: submission.Coalesced,
 	})
-	if event := server.logger.Debug(); event.Enabled() {
-		event.Str("operation", "accept CI sync").
-			Str("source", "ci").
-			Int64("gitlab_project_id", job.Project.ID).
-			Dur("duration", time.Since(started)).
-			Bool("coalesced", submission.Coalesced).
-			Int("http_status", http.StatusAccepted).
-			Msg("CI sync accepted")
-	}
+	server.logger.Info().
+		Str("operation", "queue project synchronization").
+		Str("source", "ci").
+		Int64("gitlab_job_id", job.ID).
+		Int64("gitlab_project_id", job.Project.ID).
+		Dur("duration", time.Since(started)).
+		Bool("coalesced", submission.Coalesced).
+		Int("http_status", http.StatusAccepted).
+		Msg("project synchronization request accepted")
 }
 
 // jobToken extracts one supported token transport without logging its value.

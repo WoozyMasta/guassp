@@ -19,7 +19,7 @@ func (server *Server) fullSyncAPI(writer http.ResponseWriter, _ *http.Request) {
 // queueFullSync records a UI or API request and accepts at most one outstanding cycle.
 func (server *Server) queueFullSync(source string) bool {
 	if !server.fullSync.Trigger() {
-		server.logger.Debug().
+		server.logger.Info().
 			Str("operation", "queue full synchronization").
 			Str("source", source).
 			Int("http_status", http.StatusConflict).

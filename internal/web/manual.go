@@ -98,16 +98,15 @@ func (server *Server) queueManual(ctx context.Context, reference string) (Manual
 	if !submission.Accepted {
 		return ManualSyncResponse{}, http.StatusServiceUnavailable, "service is shutting down"
 	}
-	if event := server.logger.Debug(); event.Enabled() {
-		event.Str("operation", "accept manual sync").
-			Str("source", "manual").
-			Int64("gitlab_project_id", project.ID).
-			Str("gitlab_project_path", project.PathWithNamespace).
-			Dur("duration", time.Since(started)).
-			Bool("coalesced", submission.Coalesced).
-			Int("http_status", http.StatusAccepted).
-			Msg("manual sync accepted")
-	}
+	server.logger.Info().
+		Str("operation", "queue project synchronization").
+		Str("source", "manual").
+		Int64("gitlab_project_id", project.ID).
+		Str("gitlab_project_path", project.PathWithNamespace).
+		Dur("duration", time.Since(started)).
+		Bool("coalesced", submission.Coalesced).
+		Int("http_status", http.StatusAccepted).
+		Msg("project synchronization request accepted")
 
 	return ManualSyncResponse{
 		ProjectID: project.ID,
