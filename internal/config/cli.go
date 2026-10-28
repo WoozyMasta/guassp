@@ -12,10 +12,18 @@ import (
 const defaultConfigPath = "./guassp.yaml"
 
 // ResolvePath validates the CLI arguments and returns the selected config path.
-func ResolvePath(args []string) (string, bool, error) {
+// An explicit path takes precedence over the environment value.
+func ResolvePath(args []string, environmentPath string) (string, bool, error) {
 	switch len(args) {
 	case 0:
-		return defaultConfigPath, false, nil
+		if environmentPath == "" {
+			return defaultConfigPath, false, nil
+		}
+		if strings.TrimSpace(environmentPath) == "" {
+			return "", false, errors.New("config path must not be empty")
+		}
+
+		return environmentPath, true, nil
 
 	case 1:
 		if strings.HasPrefix(args[0], "-") {

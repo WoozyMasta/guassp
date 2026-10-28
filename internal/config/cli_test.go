@@ -13,11 +13,30 @@ func TestResolvePath(t *testing.T) {
 	tests := []struct {
 		name     string
 		args     []string
+		envPath  string
 		wantPath string
 		wantSet  bool
 		wantErr  string
 	}{
 		{name: "default path", wantPath: "./guassp.yaml"},
+		{
+			name:     "environment path",
+			envPath:  "settings.yaml",
+			wantPath: "settings.yaml",
+			wantSet:  true,
+		},
+		{
+			name:     "argument overrides environment path",
+			args:     []string{"explicit.yaml"},
+			envPath:  "environment.yaml",
+			wantPath: "explicit.yaml",
+			wantSet:  true,
+		},
+		{
+			name:    "empty environment path",
+			envPath: " ",
+			wantErr: "config path must not be empty",
+		},
 		{name: "explicit path", args: []string{"settings.json"}, wantPath: "settings.json", wantSet: true},
 		{
 			name:    "option is not supported",
@@ -30,7 +49,7 @@ func TestResolvePath(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			gotPath, gotSet, err := ResolvePath(test.args)
+			gotPath, gotSet, err := ResolvePath(test.args, test.envPath)
 			if gotPath != test.wantPath || gotSet != test.wantSet {
 				t.Fatalf("ResolvePath() = %q, %t; want %q, %t", gotPath, gotSet, test.wantPath, test.wantSet)
 			}

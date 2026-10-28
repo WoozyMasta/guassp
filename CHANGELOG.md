@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning][].
 ### Removed
 -->
 
+## Unreleased
+
+### Added
+
+* Support selecting the configuration file with `GUASSP_CONFIG_PATH`.
+
 ## [0.3.0][] - 2026-10-28
 
 ### Changed

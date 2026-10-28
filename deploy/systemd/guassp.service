@@ -9,7 +9,8 @@ User=guassp
 Group=guassp
 WorkingDirectory=/etc/guassp
 EnvironmentFile=/etc/guassp/guassp.env
-ExecStart=/usr/local/bin/guassp /etc/guassp/guassp.yaml
+Environment=GUASSP_CONFIG_PATH=/etc/guassp/guassp.yaml
+ExecStart=/usr/local/bin/guassp
 Restart=on-failure
 RestartSec=5s
 NoNewPrivileges=true

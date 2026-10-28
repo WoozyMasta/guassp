@@ -41,7 +41,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return fmt.Errorf("load .env: %w", err)
 	}
 
-	path, explicit, err := config.ResolvePath(args)
+	path, explicit, err := config.ResolvePath(args, os.Getenv("GUASSP_CONFIG_PATH"))
 	if err != nil {
 		return err
 	}

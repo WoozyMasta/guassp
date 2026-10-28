@@ -49,6 +49,8 @@ see the [systemd setup guide](./deploy/systemd/README.md).
 
 With no arguments, GUASSP reads `./guassp.yaml`;
 it fails if the file is missing.
+Set `GUASSP_CONFIG_PATH` to select the file through the environment instead.
+An explicit path argument takes precedence over this variable.
 Pass a config path explicitly to create an example
 at that path when the file is missing or empty.
 Edit the generated file before starting the service.
