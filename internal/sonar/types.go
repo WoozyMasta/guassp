@@ -78,6 +78,12 @@ type User struct {
 	// ExternalIdentity is the login at the external identity provider.
 	//nolint:tagliatelle // SonarQube defines this JSON field with camelCase.
 	ExternalIdentity string `json:"externalIdentity"`
+	// ExternalLogin is the external account login returned by Web API v2.
+	//nolint:tagliatelle // SonarQube defines this JSON field with camelCase.
+	ExternalLogin string `json:"externalLogin"`
+	// ExternalID is the external account ID returned by Web API v2.
+	//nolint:tagliatelle // SonarQube defines this JSON field with camelCase.
+	ExternalID string `json:"externalId"`
 	// Groups lists the groups assigned to the user.
 	Groups []string `json:"groups"`
 	// Active reports whether the account is active.

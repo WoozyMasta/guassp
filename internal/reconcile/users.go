@@ -188,8 +188,12 @@ func newUserIndex(users []sonar.User) *userIndex {
 			user.Groups = append(append([]string(nil), existing.Groups...), user.Groups...)
 		}
 		index.byLogin[user.Login] = user
-		if user.ExternalProvider == "gitlab" && user.ExternalIdentity != "" {
-			index.byExternalID[user.ExternalIdentity] = append(index.byExternalID[user.ExternalIdentity], user)
+		if user.ExternalProvider == "gitlab" {
+			for _, identity := range externalIdentityValues(user) {
+				if identity != "" {
+					index.byExternalID[identity] = append(index.byExternalID[identity], user)
+				}
+			}
 		}
 		if email := normalizeEmail(user.Email); email != "" {
 			index.byEmail[email] = append(index.byEmail[email], user)
@@ -200,6 +204,11 @@ func newUserIndex(users []sonar.User) *userIndex {
 	}
 
 	return index
+}
+
+// externalIdentityValues returns the identity fields supported by SonarQube APIs.
+func externalIdentityValues(user sonar.User) []string {
+	return []string{user.ExternalIdentity, user.ExternalLogin, user.ExternalID}
 }
 
 // cloneUsers prevents callers and source adapters from mutating cached slices.

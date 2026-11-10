@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning][].
 ### Removed
 -->
 
+## [0.3.3][] - 2026-11-11
+
+### Fixed
+
+* Match GitLab users from SonarQube Web API v2 external login and ID fields.
+
+[0.3.3]: https://github.com/WoozyMasta/guassp/compare/0.3.2...v0.3.3
+
 ## [0.3.2][] - 2026-11-10
 
 ### Added

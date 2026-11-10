@@ -274,6 +274,12 @@ func mergeSonarUser(users map[string]sonar.User, user sonar.User) {
 		if existing.ExternalIdentity != user.ExternalIdentity {
 			existing.ExternalIdentity = ""
 		}
+		if existing.ExternalLogin != user.ExternalLogin {
+			existing.ExternalLogin = ""
+		}
+		if existing.ExternalID != user.ExternalID {
+			existing.ExternalID = ""
+		}
 
 		existing.Active = existing.Active && user.Active
 		users[user.Login] = existing
@@ -308,7 +314,11 @@ func currentPermissionsByLogin(records []sonar.UserPermissions) map[string]domai
 func protectIdentityUsers(protected map[string]struct{}, users []sonar.User, member gitlab.Member) {
 	identity := identityForMember(member)
 	for _, user := range users {
-		if user.ExternalProvider == "gitlab" && identity.matches(user.ExternalIdentity) {
+		if user.ExternalProvider != "gitlab" {
+			continue
+		}
+
+		if slices.ContainsFunc(externalIdentityValues(user), identity.matches) {
 			protected[user.Login] = struct{}{}
 		}
 	}
