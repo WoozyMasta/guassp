@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning][].
 * Include sanitized GitLab failure details in CI token validation logs.
 * Accept the GitLab project ID from the job pipeline
   when the job response omits it.
+* Log health and readiness probe outcomes at debug level,
+  with request details at trace level.
 
 ## [0.3.1][] - 2026-10-28
 

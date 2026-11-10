@@ -194,23 +194,64 @@ func (server *Server) MarkReady() {
 }
 
 // health reports process liveness without checking upstream availability.
-func (server *Server) health(writer http.ResponseWriter, _ *http.Request) {
+func (server *Server) health(writer http.ResponseWriter, request *http.Request) {
+	started := time.Now()
 	writeJSON(writer, http.StatusOK, map[string]string{"status": "ok"})
+	server.logProbe(request, "liveness", "ok", http.StatusOK, started)
 }
 
 // readiness reports whether the HTTP and scheduler startup sequence completed.
-func (server *Server) readiness(writer http.ResponseWriter, _ *http.Request) {
-	if !server.ready.Load() {
+func (server *Server) readiness(writer http.ResponseWriter, request *http.Request) {
+	started := time.Now()
+	if ready := server.ready.Load(); !ready {
 		writeJSON(writer, http.StatusServiceUnavailable, map[string]string{"status": "not_ready"})
+		server.logProbe(request, "readiness", "not_ready", http.StatusServiceUnavailable, started)
 		return
 	}
 	writeJSON(writer, http.StatusOK, map[string]string{"status": "ready"})
+	server.logProbe(request, "readiness", "ready", http.StatusOK, started)
+}
+
+func (server *Server) logProbe(
+	request *http.Request,
+	probe, state string,
+	status int,
+	started time.Time,
+) {
+	if event := server.logger.Trace(); event.Enabled() {
+		event.Str("operation", "HTTP probe").
+			Str("probe", probe).
+			Str("state", state).
+			Str("method", request.Method).
+			Str("path", request.URL.Path).
+			Str("remote_addr", request.RemoteAddr).
+			Str("user_agent", request.UserAgent()).
+			Int("http_status", status).
+			Dur("duration", time.Since(started)).
+			Msg("probe request completed")
+		return
+	}
+
+	if event := server.logger.Debug(); event.Enabled() {
+		event.Str("operation", "HTTP probe").
+			Str("probe", probe).
+			Str("state", state).
+			Int("http_status", status).
+			Dur("duration", time.Since(started)).
+			Msg("probe request completed")
+	}
 }
 
 // requireReady rejects work requests until upstream preflight checks pass.
 func (server *Server) requireReady(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if !server.ready.Load() {
+			server.logger.Debug().
+				Str("operation", "gate sync request").
+				Str("method", request.Method).
+				Str("path", request.URL.Path).
+				Int("http_status", http.StatusServiceUnavailable).
+				Msg("sync request rejected while service is not ready")
 			writeJSON(writer, http.StatusServiceUnavailable, map[string]string{"status": "not_ready"})
 			return
 		}
