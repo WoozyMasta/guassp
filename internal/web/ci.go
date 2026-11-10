@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/woozymasta/guassp/internal/httpclient"
 	"github.com/woozymasta/guassp/internal/scheduler"
 )
 
@@ -30,11 +31,15 @@ func (server *Server) sync(writer http.ResponseWriter, request *http.Request) {
 	job, err := server.jobValidator.CurrentJob(request.Context(), token)
 	if err != nil {
 		status, message := validationFailure(err)
-		server.logger.Warn().
+		event := server.logger.Warn().
 			Str("component", "http").
 			Str("operation", "validate CI job token").
 			Int("http_status", status).
-			Msg("CI job validation failed")
+			Err(err)
+		if apiError, ok := errors.AsType[*httpclient.Error](err); ok {
+			event.Int("upstream_status", apiError.StatusCode)
+		}
+		event.Msg("CI job validation failed")
 		writeError(writer, status, message)
 		return
 	}

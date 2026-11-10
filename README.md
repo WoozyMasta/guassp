@@ -165,8 +165,8 @@ sonarqube:
 
 With `api.token`, `Authorization` carries the GUASSP API token
 and `JOB-TOKEN` carries `CI_JOB_TOKEN`.
-Without `api.token`, omit `JOB-TOKEN`
-and send the job token as `Authorization: Bearer $CI_JOB_TOKEN`.
+Without `api.token`, send `CI_JOB_TOKEN` in `JOB-TOKEN`;
+`Authorization: Bearer $CI_JOB_TOKEN` is also accepted.
 GitLab validates the job token before GUASSP queues the project.
 
 The scanner token and `sonarqube.token` are different credentials.

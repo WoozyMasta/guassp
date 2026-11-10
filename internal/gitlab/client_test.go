@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/woozymasta/guassp/internal/httpclient"
+	gitlabapi "gitlab.com/gitlab-org/api/client-go/v3"
 )
 
 type observedRequest struct {
@@ -215,9 +216,72 @@ func TestCurrentJobRequiresProjectID(t *testing.T) {
 	}
 }
 
-func TestCurrentJobDoesNotUseLegacyPipelineProjectID(t *testing.T) {
+func TestCurrentJobFallsBackToPipelineProjectID(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"id":123,"pipeline":{"project_id":456}}`))
+	}))
+	t.Cleanup(server.Close)
+	client := newTestClient(t, server)
+
+	job, err := client.CurrentJob(context.Background(), "ci-secret")
+	if err != nil {
+		t.Fatalf("CurrentJob: %v", err)
+	}
+	if job.ID != 123 || job.Project.ID != 456 {
+		t.Fatalf("job = %#v", job)
+	}
+}
+
+func TestJobProjectID(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		job  *gitlabapi.Job
+		want int64
+		fail bool
+	}{
+		{
+			name: "project ID",
+			job:  &gitlabapi.Job{ID: 123, Project: &gitlabapi.Project{ID: 456}},
+			want: 456,
+		},
+		{
+			name: "pipeline project ID fallback",
+			job:  &gitlabapi.Job{ID: 123, Pipeline: gitlabapi.JobPipeline{ProjectID: 456}},
+			want: 456,
+		},
+		{
+			name: "conflicting IDs",
+			job: &gitlabapi.Job{
+				ID:       123,
+				Pipeline: gitlabapi.JobPipeline{ProjectID: 456},
+				Project:  &gitlabapi.Project{ID: 789},
+			},
+			fail: true,
+		},
+		{
+			name: "missing project ID",
+			job:  &gitlabapi.Job{ID: 123},
+			fail: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := jobProjectID(test.job)
+			if test.fail {
+				if err == nil {
+					t.Fatal("jobProjectID succeeded")
+				}
+				return
+			}
+			if err != nil || got != test.want {
+				t.Fatalf("jobProjectID() = (%d, %v), want (%d, nil)", got, err, test.want)
+			}
+		})
+	}
+}
+
+func TestCurrentJobRejectsConflictingProjectIDs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"id":123,"pipeline":{"project_id":456},"project":{"id":789}}`))
 	}))
 	t.Cleanup(server.Close)
 	client := newTestClient(t, server)
@@ -225,7 +289,7 @@ func TestCurrentJobDoesNotUseLegacyPipelineProjectID(t *testing.T) {
 	_, err := client.CurrentJob(context.Background(), "ci-secret")
 	var apiErr *httpclient.Error
 	if !errors.As(err, &apiErr) || apiErr.Err == nil {
-		t.Fatalf("CurrentJob error = %#v, want missing modern project ID error", err)
+		t.Fatalf("CurrentJob error = %#v, want conflicting project ID error", err)
 	}
 }
 

@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning][].
 ### Removed
 -->
 
+## Unreleased
+
+### Added
+
+* Include sanitized GitLab failure details in CI token validation logs.
+* Accept the GitLab project ID from the job pipeline
+  when the job response omits it.
+
 ## [0.3.1][] - 2026-10-28
 
 ### Added

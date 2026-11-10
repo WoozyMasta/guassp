@@ -178,14 +178,34 @@ func (client *Client) CurrentJob(ctx context.Context, jobToken string) (Job, err
 		return Job{}, apiErr
 	}
 
-	if job == nil || job.Project == nil || job.Project.ID < 1 {
-		apiErr := client.apiError("validate job token", errors.New("response does not include a valid project ID"))
+	projectID, err := jobProjectID(job)
+	if err != nil {
+		apiErr := client.apiError("validate job token", err)
 		client.observe("validate job token", started, apiErr)
 		return Job{}, apiErr
 	}
 
 	client.observe("validate job token", started, nil)
-	return Job{ID: job.ID, Project: JobProject{ID: job.Project.ID}}, nil
+	return Job{ID: job.ID, Project: JobProject{ID: projectID}}, nil
+}
+
+func jobProjectID(job *gitlabapi.Job) (int64, error) {
+	if job == nil || job.ID < 1 {
+		return 0, errors.New("response does not include a valid job ID")
+	}
+
+	projectID := job.Pipeline.ProjectID
+	if job.Project != nil && job.Project.ID > 0 {
+		if projectID > 0 && projectID != job.Project.ID {
+			return 0, errors.New("response contains conflicting project IDs")
+		}
+		projectID = job.Project.ID
+	}
+	if projectID < 1 {
+		return 0, errors.New("response does not include a valid project ID")
+	}
+
+	return projectID, nil
 }
 
 // Project retrieves a project by numeric ID or URL-encoded path_with_namespace.
