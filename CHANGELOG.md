@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning][].
 ### Removed
 -->
 
-## Unreleased
+## [0.3.2][] - 2026-11-10
 
 ### Added
 
@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning][].
   when the job response omits it.
 * Log health and readiness probe outcomes at debug level,
   with request details at trace level.
+
+[0.3.2]: https://github.com/WoozyMasta/guassp/compare/0.3.1...v0.3.2
 
 ## [0.3.1][] - 2026-10-28
 
